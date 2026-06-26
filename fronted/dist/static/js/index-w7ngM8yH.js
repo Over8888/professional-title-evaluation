@@ -1,0 +1,1 @@
+import{aq as r,as as c,m as n,t as u}from"./vue-B5-EMAP-.js";const i={__name:"index",setup(p){const e=r(),t=c(),{params:a,query:s}=e,{path:o}=a;return t.replace({path:"/"+o,query:s}),(_,m)=>(n(),u("div"))}};export{i as default};

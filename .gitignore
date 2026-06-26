@@ -1,29 +1,36 @@
-# 忽略 workspace 根目录下的所有文件和文件夹
+# 忽略根目录所有内容
 /*
 
-# 但保留 .gitignore
+# 保留 .gitignore
 !/.gitignore
 
-# 但保留 backend 文件夹
+# 保留 backend
 !/backend/
+!/backend/**
+
+# 保留 fronted 文件夹本身
 !/fronted/
 
-# Maven 编译输出，不上传
+# 忽略 fronted 下所有内容
+/fronted/*
+
+# 只保留 fronted/dist
+!/fronted/dist/
+!/fronted/dist/**
+
+# 后端 Maven 编译输出不上传
 /backend/target/
 /backend/**/*.class
 
-# 日志文件
-/backend/*.log
-/backend/logs/
-
-# IDEA
-.idea/
-
-# VS Code
-/backend/.vscode/
-
-# 系统文件
+# 日志、临时文件
+*.log
+*.tmp
 .DS_Store
 Thumbs.db
-.agents/
+
+# IDE
+.idea/
+.vscode/
+*.iml
 .codex/
+.agents/
