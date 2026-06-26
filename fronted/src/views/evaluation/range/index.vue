@@ -41,7 +41,7 @@
           <el-table-column label="锁定通过人数" prop="lockedPassCount" width="130" align="center" />
           <el-table-column label="确定通过序号范围" prop="confirmedPassRange" width="160" align="center" />
           <el-table-column label="需要投票范围" prop="voteRange" width="140" align="center" />
-          <el-table-column label="需要投票人数" prop="minVoteRejectCount" width="140" align="center" />
+          <el-table-column label="投票不推荐人数" prop="minVoteRejectCount" width="150" align="center" />
           <el-table-column label="锁定不通过人数" prop="lockedRejectCount" width="140" align="center" />
           <el-table-column label="确定不通过序号范围" prop="confirmedRejectRange" width="170" align="center" />
           <el-table-column label="计划评委数" prop="plannedVoterCount" width="120" align="center" />

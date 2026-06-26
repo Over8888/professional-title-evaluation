@@ -190,6 +190,7 @@ public class RuleConfigServiceImpl implements IRuleConfigService
         int maxPass = Math.max(0, Math.min(maxPassCount, candidateCount));
         RangeCounts counts = resolveRangeCounts(null, setting, maxPass, candidateCount, rejectRatio);
         int voteCount = Math.max(0, candidateCount - counts.lockedPassCount - counts.lockedRejectCount);
+        int voteRejectCount = Math.max(0, maxPass - counts.lockedPassCount - counts.lockedRejectCount);
         int voteEnd = candidateCount - counts.lockedRejectCount;
         String passRange = formatOrdinalRange(1, counts.lockedPassCount);
         String voteRange = formatOrdinalRange(counts.lockedPassCount + 1, voteEnd);
@@ -206,7 +207,7 @@ public class RuleConfigServiceImpl implements IRuleConfigService
         row.put("fixedPassCount", counts.lockedPassCount);
         row.put("lockedPassCount", counts.lockedPassCount);
         row.put("voteCount", voteCount);
-        row.put("minVoteRejectCount", voteCount);
+        row.put("minVoteRejectCount", voteRejectCount);
         row.put("fixedRejectCount", counts.lockedRejectCount);
         row.put("lockedRejectCount", counts.lockedRejectCount);
         row.put("confirmedPassRange", passRange);

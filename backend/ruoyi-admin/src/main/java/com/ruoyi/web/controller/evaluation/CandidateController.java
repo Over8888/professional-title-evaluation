@@ -22,6 +22,7 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.evaluation.domain.Candidate;
+import com.ruoyi.evaluation.domain.ImportPreviewResult;
 import com.ruoyi.evaluation.domain.SelectionRequest;
 import com.ruoyi.evaluation.service.ICandidateService;
 
@@ -78,8 +79,9 @@ public class CandidateController extends BaseController
     @PostMapping("/importData")
     public AjaxResult importData(@RequestParam("activityId") Long activityId, MultipartFile file, boolean updateSupport) throws Exception
     {
-        AjaxResult ajax = success(candidateService.importData(activityId, file, updateSupport, getUsername()));
-        ajax.put("msg", "Candidate import completed.");
+        ImportPreviewResult result = candidateService.importData(activityId, file, updateSupport, getUsername());
+        AjaxResult ajax = success(result);
+        ajax.put("msg", buildImportMessage("候选人导入完成", result));
         return ajax;
     }
 
@@ -88,8 +90,9 @@ public class CandidateController extends BaseController
     @PostMapping("/pool/importData")
     public AjaxResult importPoolData(MultipartFile file, boolean updateSupport) throws Exception
     {
-        AjaxResult ajax = success(candidateService.importPoolData(file, updateSupport, getUsername()));
-        ajax.put("msg", "候选人资料库导入完成");
+        ImportPreviewResult result = candidateService.importPoolData(file, updateSupport, getUsername());
+        AjaxResult ajax = success(result);
+        ajax.put("msg", buildImportMessage("候选人资料库导入完成", result));
         return ajax;
     }
 
@@ -150,5 +153,31 @@ public class CandidateController extends BaseController
     public AjaxResult remove(@PathVariable Long[] ids)
     {
         return toAjax(candidateService.deleteCandidateByIds(ids));
+    }
+
+    private String buildImportMessage(String title, ImportPreviewResult result)
+    {
+        int imported = result == null ? 0 : result.getImportedRows();
+        StringBuilder message = new StringBuilder(title).append("，成功处理 ").append(Math.max(imported, 0)).append(" 条。");
+        if (result != null && result.getErrors() != null && !result.getErrors().isEmpty())
+        {
+            message.append("\n存在 ").append(result.getErrors().size()).append(" 条提示：");
+            int limit = Math.min(10, result.getErrors().size());
+            for (int i = 0; i < limit; i++)
+            {
+                ImportPreviewResult.ImportError error = result.getErrors().get(i);
+                message.append("\n")
+                       .append(error.getSheetName() == null ? "" : error.getSheetName())
+                       .append(error.getRowNo() == null ? "" : " 第" + error.getRowNo() + "行")
+                       .append(error.getField() == null ? "" : " [" + error.getField() + "]")
+                       .append("：")
+                       .append(error.getReason());
+            }
+            if (result.getErrors().size() > limit)
+            {
+                message.append("\n其余提示已省略。");
+            }
+        }
+        return message.toString();
     }
 }

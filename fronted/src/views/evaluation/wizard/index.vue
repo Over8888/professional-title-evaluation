@@ -85,9 +85,10 @@
         <el-table v-loading="poolCandidateLoading" :data="poolCandidates" @selection-change="candidateSelection = $event">
           <el-table-column type="selection" width="48" />
           <el-table-column label="姓名" prop="name" />
-          <el-table-column label="单位" prop="company" />
+          <el-table-column label="身份证号" prop="idCard" width="180">
+            <template #default="scope">{{ maskIdCard(scope.row.idCard) }}</template>
+          </el-table-column>
           <el-table-column label="组别/专业" prop="department" />
-          <el-table-column label="当前等级" prop="currentLevel" width="110" />
           <el-table-column label="申报等级" prop="appliedLevel" width="110" />
           <el-table-column label="序号" prop="importSeq" width="90" />
         </el-table>
@@ -113,9 +114,10 @@
       <el-divider />
       <el-table v-loading="candidateLoading" :data="activityCandidates">
         <el-table-column label="姓名" prop="name" />
-        <el-table-column label="单位" prop="company" />
+        <el-table-column label="身份证号" prop="idCard" width="180">
+          <template #default="scope">{{ maskIdCard(scope.row.idCard) }}</template>
+        </el-table-column>
         <el-table-column label="组别/专业" prop="department" />
-        <el-table-column label="当前等级" prop="currentLevel" width="110" />
         <el-table-column label="申报等级" prop="appliedLevel" width="110" />
         <el-table-column label="序号" prop="importSeq" width="90" />
       </el-table>
@@ -201,7 +203,7 @@
         </el-table-column>
         <el-table-column label="确定通过序号范围" prop="confirmedPassRange" width="160" align="center" />
         <el-table-column label="需要投票范围" prop="voteRange" width="140" align="center" />
-        <el-table-column label="需要投票人数" prop="minVoteRejectCount" width="140" align="center" />
+        <el-table-column label="投票不推荐人数" prop="minVoteRejectCount" width="150" align="center" />
         <el-table-column label="锁定不通过人数" prop="lockedRejectCount" width="160" align="center">
           <template #default="{ row }">
             <el-input-number
@@ -272,7 +274,7 @@
       </template>
     </el-dialog>
 
-    <excel-import-dialog ref="candidateImportRef" title="导入当前活动候选人" :action="candidateImportAction" template-action="/evaluation/candidate/importTemplate" template-file-name="candidate_template" update-support-label="替换当前活动候选人" @success="refreshCandidates" />
+    <excel-import-dialog ref="candidateImportRef" title="导入当前活动候选人" :action="candidateImportAction" template-action="/evaluation/candidate/importTemplate" template-file-name="candidate_template" update-support-label="替换当前活动候选人" @success="handleCandidateImportSuccess" />
     <excel-import-dialog ref="candidatePoolImportRef" title="导入候选人资料库" action="/evaluation/candidate/pool/importData" template-action="/evaluation/candidate/importTemplate" template-file-name="candidate_pool_template" update-support-label="替换候选人资料库" @success="loadPoolCandidates" />
     <excel-import-dialog ref="voterImportRef" title="导入当前活动评委" :action="voterImportAction" template-action="/evaluation/voter/importTemplate" template-file-name="voter_template" update-support-label="替换当前活动评委" @success="refreshVoters" />
     <excel-import-dialog ref="voterPoolImportRef" title="导入评委资料库" action="/evaluation/voter/pool/importData" template-action="/evaluation/voter/importTemplate" template-file-name="voter_pool_template" update-support-label="替换评委资料库" @success="loadPoolVoters" />
@@ -360,6 +362,13 @@ const voterPoolImportRef = ref()
 
 const candidateImportAction = computed(() => `/evaluation/candidate/importData?activityId=${activityId.value || ''}`)
 const voterImportAction = computed(() => `/evaluation/voter/importData?activityId=${activityId.value || ''}`)
+
+function maskIdCard(idCard) {
+  if (!idCard) return '-'
+  const value = String(idCard)
+  if (value.length < 10) return value
+  return value.slice(0, 6) + '********' + value.slice(-4)
+}
 
 function resetWizardState() {
   activeStep.value = 0
@@ -474,6 +483,13 @@ function refreshCandidates() {
   }).finally(() => {
     candidateLoading.value = false
   })
+}
+
+function handleCandidateImportSuccess(result) {
+  if (result?.activityId) {
+    activityId.value = result.activityId
+  }
+  refreshCandidates()
 }
 
 function selectCandidates() {
@@ -597,13 +613,14 @@ function recalculatePreviewRow(row, changedField) {
   }
   const voteStart = passCount + 1
   const voteEnd = total - rejectCount
-  const minVoteRejectCount = Math.max(0, total - passCount - rejectCount)
+  const voteCount = Math.max(0, total - passCount - rejectCount)
+  const minVoteRejectCount = Math.max(0, maxPassCount - passCount - rejectCount)
   row.maxPassCount = maxPassCount
   row.fixedPassCount = passCount
   row.lockedPassCount = passCount
   row.fixedRejectCount = rejectCount
   row.lockedRejectCount = rejectCount
-  row.voteCount = minVoteRejectCount
+  row.voteCount = voteCount
   row.minVoteRejectCount = minVoteRejectCount
   row.confirmedPassRange = formatSortRange(1, passCount)
   row.fixedPassRange = row.confirmedPassRange

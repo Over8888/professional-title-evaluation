@@ -68,7 +68,15 @@
     </sql>
 
     <sql id="candidateRangeOrderBy">
-        order by case applied_level
+        order by case department
+                   when '船体组' then 1
+                   when '船机组' then 2
+                   when '船电组' then 3
+                   when '综合组' then 4
+                   else 99
+                 end asc,
+                 department asc,
+                 case applied_level
                    when '正高级' then 1
                    when '正高级工程师' then 1
                    when '副高级' then 2
@@ -82,14 +90,6 @@
                    else 99
                  end asc,
                  applied_level asc,
-                 case department
-                   when '船体组' then 1
-                   when '船机组' then 2
-                   when '船电组' then 3
-                   when '综合组' then 4
-                   else 99
-                 end asc,
-                 department asc,
                  import_seq asc,
                  id asc
     </sql>

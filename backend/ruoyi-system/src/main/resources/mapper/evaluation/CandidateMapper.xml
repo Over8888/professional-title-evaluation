@@ -47,7 +47,30 @@
     <select id="selectCandidateList" parameterType="Candidate" resultMap="CandidateResult">
         <include refid="selectCandidateVo"/>
         <include refid="candidateFilters"/>
-        order by import_seq asc, id asc
+        order by case department
+                   when '船体组' then 1
+                   when '船机组' then 2
+                   when '船电组' then 3
+                   when '综合组' then 4
+                   else 99
+                 end asc,
+                 department asc,
+                 case applied_level
+                   when '正高级' then 1
+                   when '正高级工程师' then 1
+                   when '副高级' then 2
+                   when '高级工程师' then 2
+                   when '中级' then 3
+                   when '工程师' then 3
+                   when '初级' then 4
+                   when '助理工程师' then 4
+                   when '员级' then 5
+                   when '技术员' then 5
+                   else 99
+                 end asc,
+                 applied_level asc,
+                 import_seq asc,
+                 id asc
     </select>
 
     <select id="selectCandidateById" parameterType="Long" resultMap="CandidateResult">

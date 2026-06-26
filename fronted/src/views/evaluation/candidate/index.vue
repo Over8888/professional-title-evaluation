@@ -4,11 +4,6 @@
       <el-form-item label="姓名" prop="name">
         <el-input v-model="queryParams.name" placeholder="请输入姓名" clearable style="width: 180px" @keyup.enter="handleQuery" />
       </el-form-item>
-      <el-form-item label="单位" prop="company">
-        <el-select v-model="queryParams.company" placeholder="请选择单位" filterable clearable style="width: 220px" @change="handleQuery">
-          <el-option v-for="item in optionData.companies" :key="item" :label="item" :value="item" />
-        </el-select>
-      </el-form-item>
       <el-form-item label="二级部门" prop="department">
         <el-select v-model="queryParams.department" placeholder="请选择二级部门" filterable clearable style="width: 200px" @change="handleQuery">
           <el-option v-for="item in optionData.departments" :key="item" :label="item" :value="item" />
@@ -22,11 +17,6 @@
       <el-form-item label="岗位" prop="position">
         <el-select v-model="queryParams.position" placeholder="请选择岗位" filterable clearable style="width: 200px" @change="handleQuery">
           <el-option v-for="item in optionData.positions" :key="item" :label="item" :value="item" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="当前等级" prop="currentLevel">
-        <el-select v-model="queryParams.currentLevel" placeholder="请选择当前等级" filterable clearable style="width: 160px" @change="handleQuery">
-          <el-option v-for="item in optionData.currentLevels" :key="item" :label="item" :value="item" />
         </el-select>
       </el-form-item>
       <el-form-item label="申报等级" prop="appliedLevel">
@@ -60,15 +50,13 @@
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="序号" prop="importSeq" width="80" align="center" />
       <el-table-column label="姓名" prop="name" width="110" :show-overflow-tooltip="true" />
-      <el-table-column label="单位" prop="company" min-width="170" :show-overflow-tooltip="true" />
-      <el-table-column label="二级部门" prop="department" min-width="130" :show-overflow-tooltip="true" />
-      <el-table-column label="三级部门" prop="thirdLevelDepartment" min-width="180" :show-overflow-tooltip="true" />
-      <el-table-column label="岗位" prop="position" min-width="150" :show-overflow-tooltip="true" />
-      <el-table-column label="当前等级" prop="currentLevel" width="110" align="center" />
-      <el-table-column label="申报等级" prop="appliedLevel" width="110" align="center" />
       <el-table-column label="身份证号" prop="idCard" width="180" align="center">
         <template #default="scope">{{ maskIdCard(scope.row.idCard) }}</template>
       </el-table-column>
+      <el-table-column label="二级部门" prop="department" min-width="130" :show-overflow-tooltip="true" />
+      <el-table-column label="三级部门" prop="thirdLevelDepartment" min-width="180" :show-overflow-tooltip="true" />
+      <el-table-column label="岗位" prop="position" min-width="150" :show-overflow-tooltip="true" />
+      <el-table-column label="申报等级" prop="appliedLevel" width="110" align="center" />
       <el-table-column label="操作" align="center" width="110" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-tooltip content="修改" placement="top">
@@ -97,36 +85,24 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="单位" prop="company">
-          <el-input v-model="form.company" placeholder="请输入单位" />
-        </el-form-item>
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="二级部门" prop="department">
-              <el-input v-model="form.department" placeholder="请输入二级部门" @change="syncThirdLevelDepartment" />
+              <el-input v-model="form.department" placeholder="请输入二级部门" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="三级部门" prop="thirdLevelDepartment">
-              <el-input v-model="form.thirdLevelDepartment" placeholder="自动生成，可手动调整" />
+              <el-input v-model="form.thirdLevelDepartment" placeholder="请输入三级部门" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-form-item label="岗位" prop="position">
           <el-input v-model="form.position" placeholder="请输入岗位" />
         </el-form-item>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="当前等级" prop="currentLevel">
-              <el-input v-model="form.currentLevel" placeholder="请输入当前等级" @change="syncThirdLevelDepartment" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="申报等级" prop="appliedLevel">
-              <el-input v-model="form.appliedLevel" placeholder="请输入申报等级" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <el-form-item label="申报等级" prop="appliedLevel">
+          <el-input v-model="form.appliedLevel" placeholder="请输入申报等级" />
+        </el-form-item>
         <el-form-item label="身份证号" prop="idCard">
           <el-input v-model="form.idCard" placeholder="请输入身份证号" />
         </el-form-item>
@@ -168,11 +144,9 @@ const total = ref(0)
 const title = ref('')
 const importDialogRef = ref(null)
 const optionData = reactive({
-  companies: [],
   departments: [],
   thirdLevelDepartments: [],
   positions: [],
-  currentLevels: [],
   appliedLevels: []
 })
 
@@ -183,11 +157,9 @@ const data = reactive({
     pageSize: 10,
     pool: true,
     name: undefined,
-    company: undefined,
     department: undefined,
     thirdLevelDepartment: undefined,
     position: undefined,
-    currentLevel: undefined,
     appliedLevel: undefined
   }
 })
@@ -204,11 +176,9 @@ function maskIdCard(idCard) {
 function loadOptions() {
   listCandidateOptions().then(response => {
     const data = response.data || {}
-    optionData.companies = data.companies || []
     optionData.departments = data.departments || []
     optionData.thirdLevelDepartments = data.thirdLevelDepartments || []
     optionData.positions = data.positions || []
-    optionData.currentLevels = data.currentLevels || []
     optionData.appliedLevels = data.appliedLevels || []
   })
 }
@@ -258,19 +228,7 @@ function handleUpdate(row) {
   })
 }
 
-function buildThirdLevelDepartment() {
-  const department = form.value.department || ''
-  const currentLevel = form.value.currentLevel || ''
-  if (!department && !currentLevel) return undefined
-  return `${department}(${currentLevel})`
-}
-
-function syncThirdLevelDepartment() {
-  form.value.thirdLevelDepartment = buildThirdLevelDepartment()
-}
-
 function submitForm() {
-  form.value.thirdLevelDepartment = buildThirdLevelDepartment()
   updateCandidate(form.value).then(() => {
     proxy.$modal.msgSuccess('修改成功')
     open.value = false

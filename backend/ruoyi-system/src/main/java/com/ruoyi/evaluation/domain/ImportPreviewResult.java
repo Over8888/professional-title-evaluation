@@ -12,6 +12,7 @@ public class ImportPreviewResult
     private int sheetCount;
     private int totalRows;
     private int previewRows;
+    private int importedRows;
     private List<SheetPreview> sheets = new ArrayList<>();
     private List<ImportError> errors = new ArrayList<>();
 
@@ -27,6 +28,8 @@ public class ImportPreviewResult
     public void setTotalRows(int totalRows) { this.totalRows = totalRows; }
     public int getPreviewRows() { return previewRows; }
     public void setPreviewRows(int previewRows) { this.previewRows = previewRows; }
+    public int getImportedRows() { return importedRows; }
+    public void setImportedRows(int importedRows) { this.importedRows = importedRows; }
     public List<SheetPreview> getSheets() { return sheets; }
     public void setSheets(List<SheetPreview> sheets) { this.sheets = sheets; }
     public List<ImportError> getErrors() { return errors; }

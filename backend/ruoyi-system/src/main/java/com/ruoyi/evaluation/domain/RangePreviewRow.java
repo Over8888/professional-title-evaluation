@@ -21,7 +21,7 @@ public class RangePreviewRow
     private String fixedPassRange;
     @Excel(name = "需要投票范围")
     private String voteRange;
-    @Excel(name = "投票不推荐最少人数")
+    @Excel(name = "投票不推荐人数")
     private Long minVoteRejectCount;
     @Excel(name = "锁定不通过人数")
     private Long fixedRejectCount;

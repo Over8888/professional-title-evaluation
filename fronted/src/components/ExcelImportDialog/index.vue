@@ -1,6 +1,6 @@
 <template>
   <el-dialog :title="title" v-model="visible" :width="width" append-to-body @close="handleClose">
-    <el-upload ref="uploadRef" :limit="1" accept=".xlsx, .xls" :headers="headers" :action="uploadUrl" :disabled="isUploading" :on-progress="handleProgress" :on-change="handleFileChange" :on-remove="handleFileRemove" :on-success="handleSuccess" :auto-upload="false" drag>
+    <el-upload ref="uploadRef" :limit="1" accept=".xlsx, .xls" :headers="headers" :action="uploadUrl" :disabled="isUploading" :on-progress="handleProgress" :on-change="handleFileChange" :on-remove="handleFileRemove" :on-success="handleSuccess" :on-error="handleError" :auto-upload="false" drag>
       <el-icon class="el-icon--upload"><upload-filled /></el-icon>
       <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
       <template #tip>
@@ -116,12 +116,56 @@ const handleFileRemove = (file, fileList) => {
 
 // 上传成功
 function handleSuccess(response) {
-  visible.value = false
   isUploading.value = false
+  if (!response || response.code !== 200) {
+    const message = response?.msg || '导入失败，请检查文件内容后重试。'
+    proxy.$alert(formatImportMessage(message), '导入失败', { dangerouslyUseHTMLString: true, type: 'error' })
+    return
+  }
+  visible.value = false
   selectedFile.value = null
   uploadRef.value?.clearFiles()
-  proxy.$alert("<div style='overflow:auto;overflow-x:hidden;max-height:70vh;padding:10px 20px 0;'>" + response.msg + '</div>', '导入结果', { dangerouslyUseHTMLString: true })
-  emit('success')
+  proxy.$alert(formatImportMessage(response.msg || buildResultMessage(response.data)), '导入结果', { dangerouslyUseHTMLString: true })
+  emit('success', response.data, response)
+}
+
+function handleError(error) {
+  isUploading.value = false
+  const message = parseUploadError(error)
+  proxy.$alert(formatImportMessage(message), '导入失败', { dangerouslyUseHTMLString: true, type: 'error' })
+}
+
+function buildResultMessage(data) {
+  if (!data) return '导入完成。'
+  return `导入完成，成功处理 ${Number(data.importedRows || 0)} 条。`
+}
+
+function parseUploadError(error) {
+  if (!error) return '导入失败，请检查文件内容后重试。'
+  const raw = error.message || String(error)
+  const jsonStart = raw.indexOf('{')
+  if (jsonStart >= 0) {
+    try {
+      const parsed = JSON.parse(raw.slice(jsonStart))
+      return parsed.msg || raw
+    } catch (e) {
+      return raw
+    }
+  }
+  return raw
+}
+
+function formatImportMessage(message) {
+  return "<div style='overflow:auto;overflow-x:hidden;max-height:70vh;padding:10px 20px 0;'>" + escapeHtml(String(message || '')).replace(/\n/g, '<br/>') + '</div>'
+}
+
+function escapeHtml(value) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 // 提交上传

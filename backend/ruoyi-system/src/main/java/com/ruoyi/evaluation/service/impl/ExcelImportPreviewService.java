@@ -49,6 +49,12 @@ public class ExcelImportPreviewService
     private static final int MAX_JOB_ERROR_MESSAGE_LENGTH = 1000;
     private static final String IMPORT_TYPE_CANDIDATE = "CANDIDATE_IMPORT";
     private static final String IMPORT_TYPE_VOTER = "VOTER_IMPORT";
+    private static final String NO_CANDIDATE_IMPORTED_MESSAGE = "未识别到可导入候选人，请检查 sheet 名是否为申报等级、是否为说明 sheet、表头是否包含姓名/身份证号。";
+
+    private enum CandidateImportMappingMode
+    {
+        DEFAULT, SORTED, SYSTEM
+    }
 
     @Autowired
     private ExportJobMapper exportJobMapper;
@@ -83,86 +89,7 @@ public class ExcelImportPreviewService
 
     public ImportPreviewResult importCandidates(Long activityId, MultipartFile file, String username, CandidateMapper candidateMapper, ActivityCandidateMapper activityCandidateMapper) throws Exception
     {
-        if (activityId != null)
-        {
-            return importSortedCandidates(activityId, file, username, candidateMapper, activityCandidateMapper);
-        }
-        Set<String> seenIdCards = new HashSet<>();
-        int[] nextPoolImportSeq = new int[] { nextPoolImportSeq(candidateMapper) };
-        return importRows(activityId, file, IMPORT_TYPE_CANDIDATE, username, (headers, values, rowNo, result) -> {
-            Candidate candidate = new Candidate();
-            candidate.setName(valueOf(values, "\u59d3\u540d", "\u540d\u79f0", "name"));
-            candidate.setGender(valueOf(values, "\u6027\u522b", "gender"));
-            candidate.setBirthDate(parseDate(valueOf(values, "\u51fa\u751f\u5e74\u6708", "\u51fa\u751f\u65e5\u671f", "birthDate")));
-            candidate.setEducation(valueOf(values, "\u5b66\u5386", "\u6700\u9ad8\u5b66\u5386", "education"));
-            candidate.setCompany(valueOf(values, "\u5355\u4f4d", "\u5de5\u4f5c\u5355\u4f4d", "\u6240\u5728\u5355\u4f4d", "company"));
-            candidate.setFirstLevelDepartment(valueOf(values, "\u4e00\u7ea7\u90e8\u95e8", "\u4e00\u7ea7\u7ec4\u7ec7", "firstLevelDepartment"));
-            candidate.setDepartment(valueOf(values, "\u8bc4\u5ba1\u4e13\u4e1a", "\u7ec4\u522b", "\u7533\u62a5\u7ec4\u522b", "\u4e8c\u7ea7\u90e8\u95e8", "\u4e8c\u7ea7\u7ec4\u7ec7", "department"));
-            candidate.setPosition(valueOf(values, "\u5c97\u4f4d", "\u90e8\u95e8", "\u804c\u52a1", "\u73b0\u5c97\u4f4d", "position"));
-            candidate.setIdCard(normalizeIdCard(valueOf(values, "\u8eab\u4efd\u8bc1\u53f7", "\u8eab\u4efd\u8bc1\u53f7\u7801", "\u8bc1\u4ef6\u53f7\u7801", "idCard")));
-            candidate.setCurrentLevel(valueOf(values, "\u5f53\u524d\u7b49\u7ea7", "\u73b0\u7b49\u7ea7", "\u73b0\u804c\u79f0", "currentLevel"));
-            candidate.setAppliedLevel(valueOf(values, "\u7533\u62a5\u7b49\u7ea7", "\u7533\u62a5\u804c\u79f0", "\u62a5\u540d\u7b49\u7ea7", "\u7b49\u7ea7", "\u804c\u79f0", "appliedLevel", "level"));
-            candidate.setThirdLevelDepartment(buildThirdLevelDepartment(candidate.getDepartment(), candidate.getCurrentLevel()));
-            candidate.setLastYearAssessment(valueOf(values, "\u4e0a\u5e74\u5ea6\u8003\u6838\u7ed3\u679c", "lastYearAssessment"));
-            candidate.setEvaluationScore(valueOf(values, "\u8bc4\u4ef7\u7ed3\u679c", "\u8bc4\u4ef7\u5206", "\u8bc4\u5206", "\u7efc\u5408\u5f97\u5206", "evaluationScore"));
-            candidate.setFixedType(null);
-            candidate.setCreateBy(username);
-            if (StringUtils.isEmpty(candidate.getName()))
-            {
-                result.getErrors().add(new ImportError(null, rowNo, "name", "Candidate name is empty; skipped"));
-                return false;
-            }
-            if (StringUtils.isEmpty(candidate.getIdCard()))
-            {
-                result.getErrors().add(new ImportError(null, rowNo, "idCard", "ID card is empty; skipped"));
-                return false;
-            }
-            if (StringUtils.isEmpty(candidate.getDepartment()))
-            {
-                result.getErrors().add(new ImportError(null, rowNo, "department", "Candidate department/group is empty; skipped"));
-                return false;
-            }
-            if (StringUtils.isEmpty(candidate.getAppliedLevel()))
-            {
-                result.getErrors().add(new ImportError(null, rowNo, "appliedLevel", "Candidate applied level is empty; skipped"));
-                return false;
-            }
-            if (!seenIdCards.add(candidate.getIdCard()))
-            {
-                result.getErrors().add(new ImportError(null, rowNo, "idCard", "Duplicate ID card in uploaded file; skipped"));
-                return false;
-            }
-            Candidate duplicated = new Candidate();
-            duplicated.setIdCard(candidate.getIdCard());
-            if (activityId == null && candidateMapper.selectCandidateByIdCard(candidate.getIdCard()) != null)
-            {
-                result.getErrors().add(new ImportError(null, rowNo, "idCard", "ID card already exists in candidate pool; skipped"));
-                return false;
-            }
-            if (activityId == null)
-            {
-                assignPoolSequence(candidate, nextPoolImportSeq);
-                candidateMapper.insertCandidate(candidate);
-            }
-            else
-            {
-                Candidate poolCandidate = candidateMapper.selectCandidateByIdCard(candidate.getIdCard());
-                if (poolCandidate == null)
-                {
-                    assignPoolSequence(candidate, nextPoolImportSeq);
-                    candidateMapper.insertCandidate(candidate);
-                    poolCandidate = candidate;
-                }
-                ActivityCandidate activityCandidate = toActivityCandidate(activityId, poolCandidate, candidate, "EXCEL", username);
-                if (activityCandidateMapper.selectActivityCandidateByActivityIdAndIdCard(activityCandidate) != null)
-                {
-                    result.getErrors().add(new ImportError(null, rowNo, "idCard", "ID card already exists in this activity; skipped"));
-                    return false;
-                }
-                activityCandidateMapper.insertActivityCandidate(activityCandidate);
-            }
-            return true;
-        });
+        return importSortedCandidates(activityId, file, username, candidateMapper, activityCandidateMapper);
     }
 
     private ImportPreviewResult importSortedCandidates(Long activityId, MultipartFile file, String username,
@@ -186,22 +113,38 @@ public class ExcelImportPreviewService
                 preview.setSheetName(sheet.getSheetName());
                 result.getSheets().add(preview);
 
+                if (isInstructionSheet(sheet))
+                {
+                    continue;
+                }
                 int headerRowIndex = findSortedCandidateHeaderRow(sheet);
+                boolean sortedSheet = false;
                 if (headerRowIndex < 0)
                 {
+                    headerRowIndex = findCandidateHeaderRow(sheet);
+                }
+                else
+                {
+                    String sortedTitle = sheetTitle(sheet, headerRowIndex);
+                    sortedSheet = isSortedCandidateSheet(sheet, sortedTitle)
+                            || isSortedCandidateFile(file.getOriginalFilename());
+                    if (!sortedSheet && parseAppliedLevel(sheet.getSheetName()) == null)
+                    {
+                        headerRowIndex = findCandidateHeaderRow(sheet);
+                    }
+                }
+                if (headerRowIndex < 0)
+                {
+                    result.getErrors().add(new ImportError(sheet.getSheetName(), null, null, "No candidate header row found; skipped"));
                     continue;
                 }
                 String title = sheetTitle(sheet, headerRowIndex);
-                if (!isSortedCandidateSheet(sheet, title))
-                {
-                    continue;
-                }
-                String groupName = resolveGroupName(file.getOriginalFilename(), title, sheet.getSheetName());
-                if (StringUtils.isEmpty(groupName))
-                {
-                    result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, "department", "Cannot identify candidate group from file name or sheet title; skipped"));
-                    continue;
-                }
+                sortedSheet = sortedSheet || isSortedCandidateSheet(sheet, title)
+                        || isSortedCandidateFile(file.getOriginalFilename());
+                String sheetAppliedLevel = parseAppliedLevel(sheet.getSheetName());
+                String groupName = sortedSheet
+                        ? resolveGroupName(file.getOriginalFilename(), null, null)
+                        : resolveGroupName(file.getOriginalFilename(), title, sheet.getSheetName());
 
                 List<String> headers = readHeaders(sheet.getRow(headerRowIndex));
                 preview.setHeaderRowNo(headerRowIndex + 1);
@@ -211,6 +154,17 @@ public class ExcelImportPreviewService
                     result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, null, "Header row is empty"));
                     continue;
                 }
+                if (!sortedSheet && StringUtils.isEmpty(sheetAppliedLevel) && !hasAppliedLevelHeader(headers))
+                {
+                    result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, "appliedLevel", "Cannot identify applied level from sheet name or row header; skipped"));
+                    continue;
+                }
+                if (StringUtils.isEmpty(groupName) && !hasDepartmentHeader(headers))
+                {
+                    result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, "department", "Cannot identify candidate group from file name, sheet title or row header; skipped"));
+                    continue;
+                }
+                CandidateImportMappingMode mappingMode = resolveCandidateMappingMode(file.getOriginalFilename(), sortedSheet);
 
                 int lastRow = Math.min(sheet.getLastRowNum(), headerRowIndex + MAX_SCAN_ROWS_PER_SHEET);
                 for (int rowIndex = headerRowIndex + 1; rowIndex <= lastRow; rowIndex++)
@@ -220,8 +174,12 @@ public class ExcelImportPreviewService
                     {
                         continue;
                     }
-                    result.setTotalRows(result.getTotalRows() + 1);
                     Map<String, String> values = rowValues(row, headers);
+                    if (!sortedSheet && isCandidateIdentityBlank(values))
+                    {
+                        continue;
+                    }
+                    result.setTotalRows(result.getTotalRows() + 1);
                     if (preview.getRows().size() < MAX_PREVIEW_ROWS_PER_SHEET)
                     {
                         Map<String, String> previewValues = new LinkedHashMap<>(values);
@@ -230,14 +188,26 @@ public class ExcelImportPreviewService
                         preview.getRows().add(previewValues);
                         result.setPreviewRows(result.getPreviewRows() + 1);
                     }
-                    imported += importSortedCandidateRow(activityId, groupName, values, rowIndex + 1, result,
-                            seenCandidateKeys, nextPoolImportSeq, candidateMapper, activityCandidateMapper, username) ? 1 : 0;
+                    if (sortedSheet)
+                    {
+                        imported += importSortedCandidateRow(activityId, groupName, values, rowIndex + 1, result,
+                                seenCandidateKeys, nextPoolImportSeq, candidateMapper, activityCandidateMapper, username,
+                                mappingMode) ? 1 : 0;
+                    }
+                    else
+                    {
+                        imported += importCandidateRow(activityId, groupName, sheetAppliedLevel, values, rowIndex + 1, result,
+                                seenCandidateKeys, nextPoolImportSeq, candidateMapper, activityCandidateMapper, username, "EXCEL",
+                                mappingMode) ? 1 : 0;
+                    }
                 }
                 if (sheet.getLastRowNum() > lastRow)
                 {
                     result.getErrors().add(new ImportError(sheet.getSheetName(), lastRow + 1, null, "Rows after scan limit are not imported"));
                 }
             }
+            result.setImportedRows(imported);
+            assertImportedCandidateRows(imported, result);
             saveJob(activityId, IMPORT_TYPE_CANDIDATE, file.getOriginalFilename(), username,
                     result.getErrors().isEmpty() ? "SUCCESS" : "PARTIAL_SUCCESS", "imported=" + imported + errorSuffix(result));
             return result;
@@ -277,26 +247,124 @@ public class ExcelImportPreviewService
 
     private boolean importSortedCandidateRow(Long activityId, String groupName, Map<String, String> values, int rowNo,
             ImportPreviewResult result, Set<String> seenCandidateKeys, int[] nextPoolImportSeq,
-            CandidateMapper candidateMapper, ActivityCandidateMapper activityCandidateMapper, String username)
+            CandidateMapper candidateMapper, ActivityCandidateMapper activityCandidateMapper, String username,
+            CandidateImportMappingMode mappingMode)
     {
-        Candidate candidate = new Candidate();
+        Candidate candidate = buildCandidateFromValues(groupName, null, values, username, mappingMode);
         candidate.setImportSeq(parseInteger(valueOf(values, "排序", "序号", "排名", "importSeq")));
-        candidate.setCompany(valueOf(values, "单位", "工作单位", "所在单位", "company"));
-        candidate.setName(valueOf(values, "姓名", "姓 名", "名称", "name"));
-        candidate.setIdCard(normalizeIdCard(valueOf(values, "身份证号", "身份证号码", "证件号码", "idCard")));
-        candidate.setAppliedLevel(valueOf(values, "申报职称", "申报等级", "报名等级", "职称", "等级", "appliedLevel", "level"));
-        candidate.setThirdLevelDepartment(valueOf(values, "评审专业", "专业", "专业组别", "thirdLevelDepartment"));
-        candidate.setDepartment(groupName);
-        candidate.setEvaluationScore(valueOf(values, "评价结果", "评价分", "评分", "综合得分", "evaluationScore"));
-        candidate.setPosition(valueOf(values, "现岗位", "岗位", "职务", "position"));
-        candidate.setCreateBy(username);
-        candidate.setFixedType(null);
-
         if (candidate.getImportSeq() == null)
         {
             result.getErrors().add(new ImportError(null, rowNo, "importSeq", "Candidate rank is empty or invalid; skipped"));
             return false;
         }
+        return importCandidate(activityId, candidate, rowNo, result, seenCandidateKeys, nextPoolImportSeq,
+                candidateMapper, activityCandidateMapper, username, "SORTED_EXCEL");
+    }
+
+    private boolean importCandidateRow(Long activityId, String fallbackGroupName, String sheetAppliedLevel,
+            Map<String, String> values, int rowNo, ImportPreviewResult result, Set<String> seenCandidateKeys,
+            int[] nextPoolImportSeq, CandidateMapper candidateMapper, ActivityCandidateMapper activityCandidateMapper,
+            String username, String sourceType, CandidateImportMappingMode mappingMode)
+    {
+        Candidate candidate = buildCandidateFromValues(fallbackGroupName, sheetAppliedLevel, values, username, mappingMode);
+        Integer importSeq = parseInteger(valueOf(values, "排序", "序号", "排名", "importSeq"));
+        candidate.setImportSeq(importSeq);
+        return importCandidate(activityId, candidate, rowNo, result, seenCandidateKeys, nextPoolImportSeq,
+                candidateMapper, activityCandidateMapper, username, sourceType);
+    }
+
+    private Candidate buildCandidateFromValues(String fallbackGroupName, String sheetAppliedLevel,
+            Map<String, String> values, String username, CandidateImportMappingMode mappingMode)
+    {
+        Candidate candidate = new Candidate();
+        candidate.setCompany(resolveCompany(values, mappingMode));
+        candidate.setName(valueOf(values, "姓名", "姓 名", "名称", "编号", "人员编号", "name"));
+        candidate.setGender(valueOf(values, "性别", "gender"));
+        candidate.setBirthDate(parseDate(valueOf(values, "出生年月", "出生日期", "birthDate")));
+        candidate.setEducation(valueOf(values, "学历", "最高学历", "education"));
+        candidate.setFirstLevelDepartment(valueOf(values, "一级部门", "一级组织", "firstLevelDepartment"));
+        candidate.setDepartment(resolveDepartment(values, fallbackGroupName, mappingMode));
+        candidate.setPosition(resolvePosition(values, mappingMode));
+        candidate.setIdCard(normalizeIdCard(valueOf(values, "身份证号", "身份证号码", "身份证件号", "证件号码", "证件号", "idCard")));
+        candidate.setCurrentLevel(valueOf(values, "当前等级", "现等级", "现职称", "currentLevel"));
+        candidate.setAppliedLevel(normalizeAppliedLevel(firstPresent(sheetAppliedLevel,
+                valueOf(values, "申报职称", "申报等级", "报名等级", "职称", "等级", "appliedLevel", "level"))));
+        candidate.setThirdLevelDepartment(resolveThirdLevelDepartment(values, candidate, mappingMode));
+        candidate.setLastYearAssessment(valueOf(values, "上年度考核结果", "lastYearAssessment"));
+        candidate.setEvaluationScore(valueOf(values, "评价结果", "评价分", "评分", "综合得分", "evaluationScore"));
+        candidate.setCreateBy(username);
+        candidate.setFixedType(null);
+        return candidate;
+    }
+
+    private CandidateImportMappingMode resolveCandidateMappingMode(String fileName, boolean sortedSheet)
+    {
+        String normalizedFileName = StringUtils.defaultString(fileName);
+        if (normalizedFileName.contains("系统导入"))
+        {
+            return CandidateImportMappingMode.SYSTEM;
+        }
+        if (sortedSheet || normalizedFileName.contains("排序"))
+        {
+            return CandidateImportMappingMode.SORTED;
+        }
+        return CandidateImportMappingMode.DEFAULT;
+    }
+
+    private String resolveCompany(Map<String, String> values, CandidateImportMappingMode mappingMode)
+    {
+        if (mappingMode == CandidateImportMappingMode.SORTED)
+        {
+            return valueOf(values, "工作单位", "所在单位", "company");
+        }
+        return valueOf(values, "单位", "工作单位", "所在单位", "company");
+    }
+
+    private String resolveDepartment(Map<String, String> values, String fallbackGroupName,
+            CandidateImportMappingMode mappingMode)
+    {
+        if (mappingMode == CandidateImportMappingMode.SORTED)
+        {
+            return fallbackGroupName;
+        }
+        if (mappingMode == CandidateImportMappingMode.SYSTEM)
+        {
+            return firstPresent(valueOf(values, "二级部门", "二级组织", "department"),
+                    valueOf(values, "评审专业", "组别", "申报组别"), fallbackGroupName);
+        }
+        return firstPresent(valueOf(values, "评审专业", "组别", "申报组别", "二级部门", "二级组织", "department"),
+                fallbackGroupName);
+    }
+
+    private String resolvePosition(Map<String, String> values, CandidateImportMappingMode mappingMode)
+    {
+        if (mappingMode == CandidateImportMappingMode.SORTED)
+        {
+            return valueOf(values, "单位", "现岗位", "岗位", "部门/岗位", "部门", "职务", "position");
+        }
+        if (mappingMode == CandidateImportMappingMode.SYSTEM)
+        {
+            return valueOf(values, "岗位", "部门/岗位", "现岗位", "职务", "position");
+        }
+        return valueOf(values, "现岗位", "岗位", "部门/岗位", "部门", "职务", "position");
+    }
+
+    private String resolveThirdLevelDepartment(Map<String, String> values, Candidate candidate,
+            CandidateImportMappingMode mappingMode)
+    {
+        if (mappingMode == CandidateImportMappingMode.SYSTEM)
+        {
+            return firstPresent(valueOf(values, "三级部门", "thirdLevelDepartment"),
+                    valueOf(values, "专业", "专业组别"));
+        }
+        return firstPresent(valueOf(values, "三级部门", "评审专业", "专业", "专业组别", "thirdLevelDepartment"),
+                buildThirdLevelDepartment(candidate.getDepartment(), candidate.getCurrentLevel()));
+    }
+
+    private boolean importCandidate(Long activityId, Candidate candidate, int rowNo, ImportPreviewResult result,
+            Set<String> seenCandidateKeys, int[] nextPoolImportSeq, CandidateMapper candidateMapper,
+            ActivityCandidateMapper activityCandidateMapper, String username, String sourceType)
+    {
         if (StringUtils.isEmpty(candidate.getName()))
         {
             result.getErrors().add(new ImportError(null, rowNo, "name", "Candidate name is empty; skipped"));
@@ -317,6 +385,22 @@ public class ExcelImportPreviewService
             result.getErrors().add(new ImportError(null, rowNo, "department", "Candidate group is empty; skipped"));
             return false;
         }
+        if (activityId == null)
+        {
+            if (!seenCandidateKeys.add(candidate.getIdCard()))
+            {
+                result.getErrors().add(new ImportError(null, rowNo, "idCard", "Duplicate ID card in uploaded file; skipped"));
+                return false;
+            }
+            if (candidateMapper.selectCandidateByIdCard(candidate.getIdCard()) != null)
+            {
+                result.getErrors().add(new ImportError(null, rowNo, "idCard", "ID card already exists in candidate pool; skipped"));
+                return false;
+            }
+            assignPoolSequence(candidate, nextPoolImportSeq);
+            candidateMapper.insertCandidate(candidate);
+            return true;
+        }
         String candidateKey = activityCandidateScopeKey(candidate);
         if (!seenCandidateKeys.add(candidateKey))
         {
@@ -333,7 +417,7 @@ public class ExcelImportPreviewService
             poolCandidate = candidate;
         }
         candidate.setImportSeq(activityImportSeq);
-        ActivityCandidate activityCandidate = toActivityCandidate(activityId, poolCandidate, candidate, "SORTED_EXCEL", username);
+        ActivityCandidate activityCandidate = toActivityCandidate(activityId, poolCandidate, candidate, sourceType, username);
         if (activityCandidateMapper.selectActivityCandidateByActivityIdAndScope(activityCandidate) != null)
         {
             result.getErrors().add(new ImportError(null, rowNo, "idCard", "Candidate already exists in this activity group and applied level; skipped"));
@@ -348,6 +432,12 @@ public class ExcelImportPreviewService
         return StringUtils.defaultString(candidate.getDepartment()) + "|"
                 + StringUtils.defaultString(candidate.getAppliedLevel()) + "|"
                 + StringUtils.defaultString(candidate.getIdCard());
+    }
+
+    private boolean isCandidateIdentityBlank(Map<String, String> values)
+    {
+        return StringUtils.isEmpty(valueOf(values, "姓名", "姓 名", "名称", "name"))
+                && StringUtils.isEmpty(valueOf(values, "身份证号", "身份证号码", "身份证件号", "证件号码", "证件号", "idCard"));
     }
 
     private ActivityCandidate toActivityCandidate(Long activityId, Candidate poolCandidate, Candidate importedCandidate, String sourceType, String username)
@@ -406,6 +496,21 @@ public class ExcelImportPreviewService
         return sheetName.contains("排序") || titleText.contains("统分表");
     }
 
+    private boolean isSortedCandidateFile(String fileName)
+    {
+        return StringUtils.defaultString(fileName).contains("排序");
+    }
+
+    private boolean isInstructionSheet(Sheet sheet)
+    {
+        String sheetName = normalize(sheet == null ? null : sheet.getSheetName()).toLowerCase(Locale.ROOT);
+        return sheetName.contains("说明")
+                || sheetName.contains("填报说明")
+                || sheetName.contains("导入说明")
+                || sheetName.contains("模板说明")
+                || sheetName.contains("readme");
+    }
+
     private String sheetTitle(Sheet sheet, int headerRowIndex)
     {
         for (int rowIndex = Math.max(sheet.getFirstRowNum(), headerRowIndex - 3); rowIndex < headerRowIndex; rowIndex++)
@@ -430,7 +535,7 @@ public class ExcelImportPreviewService
 
     private String resolveGroupName(String fileName, String title, String sheetName)
     {
-        String text = StringUtils.defaultString(fileName) + " " + StringUtils.defaultString(title) + " " + StringUtils.defaultString(sheetName);
+        String text = normalizeGroupSource(fileName) + " " + normalizeGroupSource(title) + " " + normalizeGroupSource(sheetName);
         if (text.contains("综合组") || text.contains("综合"))
         {
             return "综合组";
@@ -450,23 +555,55 @@ public class ExcelImportPreviewService
         return null;
     }
 
+    private String normalizeGroupSource(String value)
+    {
+        String text = StringUtils.defaultString(value);
+        while (text.contains("组组"))
+        {
+            text = text.replace("组组", "组");
+        }
+        return text;
+    }
+
     private void parseSortedCandidateSheet(Sheet sheet, String fileName, ImportPreviewResult result)
     {
+        if (isInstructionSheet(sheet))
+        {
+            return;
+        }
         SheetPreview preview = new SheetPreview();
         preview.setSheetName(sheet.getSheetName());
         result.getSheets().add(preview);
 
         int headerRowIndex = findSortedCandidateHeaderRow(sheet);
+        boolean sortedSheet = false;
+        if (headerRowIndex < 0)
+        {
+            headerRowIndex = findCandidateHeaderRow(sheet);
+        }
+        else
+        {
+            String sortedTitle = sheetTitle(sheet, headerRowIndex);
+            sortedSheet = isSortedCandidateSheet(sheet, sortedTitle) || isSortedCandidateFile(fileName);
+            if (!sortedSheet && parseAppliedLevel(sheet.getSheetName()) == null)
+            {
+                headerRowIndex = findCandidateHeaderRow(sheet);
+            }
+        }
         if (headerRowIndex < 0)
         {
             return;
         }
         String title = sheetTitle(sheet, headerRowIndex);
-        if (!isSortedCandidateSheet(sheet, title))
+        sortedSheet = sortedSheet || isSortedCandidateSheet(sheet, title) || isSortedCandidateFile(fileName);
+        String sheetAppliedLevel = parseAppliedLevel(sheet.getSheetName());
+        if (!sortedSheet && StringUtils.isEmpty(sheetAppliedLevel))
         {
             return;
         }
-        String groupName = resolveGroupName(fileName, title, sheet.getSheetName());
+        String groupName = sortedSheet
+                ? resolveGroupName(fileName, null, null)
+                : resolveGroupName(fileName, title, sheet.getSheetName());
         if (StringUtils.isEmpty(groupName))
         {
             result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, "department",
@@ -485,14 +622,22 @@ public class ExcelImportPreviewService
             {
                 continue;
             }
+            Map<String, String> values = rowValues(row, headers);
+            if (!sortedSheet && isCandidateIdentityBlank(values))
+            {
+                continue;
+            }
             result.setTotalRows(result.getTotalRows() + 1);
             if (preview.getRows().size() >= MAX_PREVIEW_ROWS_PER_SHEET)
             {
                 continue;
             }
-            Map<String, String> values = rowValues(row, headers);
             values.put("_rowNo", String.valueOf(rowIndex + 1));
             values.put("_group", groupName);
+            if (StringUtils.isNotEmpty(sheetAppliedLevel))
+            {
+                values.put("_sheetAppliedLevel", sheetAppliedLevel);
+            }
             preview.getRows().add(values);
             result.setPreviewRows(result.getPreviewRows() + 1);
         }
@@ -632,6 +777,7 @@ public class ExcelImportPreviewService
                     result.getErrors().add(new ImportError(sheet.getSheetName(), lastRow + 1, null, "Rows after scan limit are not imported"));
                 }
             }
+            result.setImportedRows(imported);
             saveJob(activityId, importType, file.getOriginalFilename(), username, result.getErrors().isEmpty() ? "SUCCESS" : "PARTIAL_SUCCESS", "imported=" + imported + errorSuffix(result));
             return result;
         }
@@ -751,6 +897,40 @@ public class ExcelImportPreviewService
                 && hasAnyHeader(headers, "申报职称", "申报等级", "报名等级", "职称", "等级", "appliedLevel", "level");
     }
 
+    private int findCandidateHeaderRow(Sheet sheet)
+    {
+        int lastRow = Math.min(sheet.getLastRowNum(), MAX_SCAN_ROWS_PER_SHEET);
+        for (int i = sheet.getFirstRowNum(); i <= lastRow; i++)
+        {
+            Row row = sheet.getRow(i);
+            if (isCandidateHeader(readHeaders(row)))
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private boolean isCandidateHeader(List<String> headers)
+    {
+        if (headers == null || headers.isEmpty())
+        {
+            return false;
+        }
+        return hasAnyHeader(headers, "姓名", "姓 名", "名称", "编号", "人员编号", "name")
+                && hasAnyHeader(headers, "身份证号", "身份证号码", "身份证件号", "证件号码", "证件号", "idCard");
+    }
+
+    private boolean hasAppliedLevelHeader(List<String> headers)
+    {
+        return hasAnyHeader(headers, "申报职称", "申报等级", "报名等级", "职称", "等级", "appliedLevel", "level");
+    }
+
+    private boolean hasDepartmentHeader(List<String> headers)
+    {
+        return hasAnyHeader(headers, "评审专业", "组别", "申报组别", "二级部门", "二级组织", "department");
+    }
+
     private boolean hasAnyHeader(List<String> headers, String... names)
     {
         for (String header : headers)
@@ -848,6 +1028,53 @@ public class ExcelImportPreviewService
         return value == null ? "" : value.replace('\u3000', ' ').trim();
     }
 
+    private String firstPresent(String... values)
+    {
+        if (values == null)
+        {
+            return null;
+        }
+        for (String value : values)
+        {
+            if (StringUtils.isNotEmpty(value))
+            {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String parseAppliedLevel(String text)
+    {
+        return normalizeAppliedLevel(text);
+    }
+
+    private String normalizeAppliedLevel(String value)
+    {
+        String text = normalize(value);
+        if (StringUtils.isEmpty(text))
+        {
+            return null;
+        }
+        if (text.contains("高级工程师") || text.contains("副高级") || text.contains("副高") || text.contains("高级"))
+        {
+            return "高级工程师";
+        }
+        if (text.contains("助理工程师") || text.contains("助理级") || text.contains("助理") || text.contains("初级"))
+        {
+            return "助理工程师";
+        }
+        if (text.contains("工程师") || text.contains("中级"))
+        {
+            return "工程师";
+        }
+        if (text.contains("技术员") || text.contains("员级"))
+        {
+            return "技术员";
+        }
+        return null;
+    }
+
     private String normalizeIdCard(String value)
     {
         String normalized = normalize(value);
@@ -896,6 +1123,19 @@ public class ExcelImportPreviewService
     {
         String message = buildErrorMessage(result);
         return StringUtils.isEmpty(message) ? "" : "; " + message;
+    }
+
+    private void assertImportedCandidateRows(int imported, ImportPreviewResult result)
+    {
+        if (imported > 0)
+        {
+            return;
+        }
+        if (result.getErrors().isEmpty())
+        {
+            result.getErrors().add(new ImportError(null, null, null, NO_CANDIDATE_IMPORTED_MESSAGE));
+        }
+        throw new ServiceException(NO_CANDIDATE_IMPORTED_MESSAGE + errorSuffix(result));
     }
 
     private interface RowImporter
