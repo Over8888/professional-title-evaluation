@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.evaluation.mapper.VoteMapper">
+    <resultMap type="Vote" id="VoteResult">
+        <id property="id" column="id" />
+        <result property="activityId" column="activity_id" />
+        <result property="activityVoterId" column="activity_voter_id" />
+        <result property="activityCandidateId" column="activity_candidate_id" />
+        <result property="result" column="result" />
+        <result property="roundNo" column="round_no" />
+        <result property="voteCount" column="vote_count" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <insert id="insertVote" parameterType="Vote" useGeneratedKeys="true" keyProperty="id">
+        insert into Vote(activity_id, activity_voter_id, activity_candidate_id, result, round_no, created_at)
+        values(#{activityId}, #{activityVoterId}, #{activityCandidateId}, #{result}, #{roundNo}, sysdate())
+    </insert>
+
+    <insert id="batchInsertVote" parameterType="java.util.List">
+        insert into Vote(activity_id, activity_voter_id, activity_candidate_id, result, round_no, created_at)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.activityId}, #{item.activityVoterId}, #{item.activityCandidateId}, #{item.result}, #{item.roundNo}, sysdate())
+        </foreach>
+    </insert>
+
+    <select id="countByActivityVoter" parameterType="Vote" resultType="int">
+        select count(1)
+        from Vote
+        where activity_id = #{activityId}
+          and activity_voter_id = #{activityVoterId}
+          and round_no = #{roundNo}
+    </select>
+
+    <select id="selectVoteSummaryByActivityId" parameterType="Long" resultMap="VoteResult">
+        select activity_candidate_id,
+               result,
+               count(1) as vote_count
+        from Vote
+        where activity_id = #{activityId}
+          and round_no = 1
+        group by activity_candidate_id, result
+    </select>
+
+    <delete id="deleteVoteByActivityId" parameterType="Long">
+        delete from Vote where activity_id = #{activityId}
+    </delete>
+</mapper>

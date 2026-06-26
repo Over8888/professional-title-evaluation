@@ -1,0 +1,3 @@
+-- Superseded by evaluation_activity_candidate_refactor.sql.
+-- The activity wizard now uses ActivityCandidate for activity-scoped candidate snapshots.
+-- Keep this file as a no-op compatibility placeholder for older deployment notes.

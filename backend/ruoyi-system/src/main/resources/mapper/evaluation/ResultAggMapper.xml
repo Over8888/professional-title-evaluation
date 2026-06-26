@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.evaluation.mapper.ResultAggMapper">
+    <resultMap type="ResultAgg" id="ResultAggResult">
+        <id property="id" column="id" />
+        <result property="activityId" column="activity_id" />
+        <result property="activityCandidateId" column="activity_candidate_id" />
+        <result property="statScope" column="stat_scope" />
+        <result property="statKey" column="stat_key" />
+        <result property="votePassCount" column="vote_PASS_count" />
+        <result property="voteRejectCount" column="vote_REJECT_count" />
+        <result property="totalVotes" column="total_votes" />
+        <result property="passRate" column="pass_rate" />
+        <result property="rejectRate" column="reject_rate" />
+        <result property="rankNo" column="rank_no" />
+        <result property="finalResult" column="final_result" />
+        <result property="updateAt" column="update_at" />
+        <result property="calculatedBy" column="calculated_by" />
+        <result property="calculatedAt" column="calculated_at" />
+        <result property="importSeq" column="import_seq" />
+        <result property="candidateName" column="candidate_name" />
+        <result property="idCard" column="id_card" />
+        <result property="company" column="company" />
+        <result property="firstLevelDepartment" column="first_level_department" />
+        <result property="department" column="department" />
+        <result property="thirdLevelDepartment" column="third_level_department" />
+        <result property="position" column="position" />
+        <result property="currentLevel" column="current_level" />
+        <result property="appliedLevel" column="applied_level" />
+        <result property="fixedType" column="fixed_type" />
+    </resultMap>
+
+    <sql id="selectResultAggVo">
+        select r.id, r.activity_id, r.activity_candidate_id, r.stat_scope, r.stat_key,
+               r.vote_PASS_count, r.vote_REJECT_count, r.total_votes, r.pass_rate, r.reject_rate,
+               r.rank_no, r.final_result, r.update_at, r.calculated_by, r.calculated_at,
+               ac.import_seq, ac.name as candidate_name, ac.id_card, ac.company, ac.first_level_department,
+               ac.department, ac.third_level_department, ac.position, ac.current_level,
+               ac.applied_level, ac.fixed_type
+        from ResultAgg r
+        left join ActivityCandidate ac on ac.id = r.activity_candidate_id
+    </sql>
+
+    <select id="selectResultAggList" parameterType="ResultAgg" resultMap="ResultAggResult">
+        <include refid="selectResultAggVo"/>
+        <where>
+            <if test="activityId != null">and r.activity_id = #{activityId}</if>
+            <if test="activityCandidateId != null">and r.activity_candidate_id = #{activityCandidateId}</if>
+            <if test="statScope != null and statScope != ''">and r.stat_scope = #{statScope}</if>
+            <if test="statKey != null and statKey != ''">and r.stat_key = #{statKey}</if>
+            <if test="finalResult != null and finalResult != ''">and r.final_result = #{finalResult}</if>
+            <if test="department != null and department != ''">and ac.department = #{department}</if>
+            <if test="appliedLevel != null and appliedLevel != ''">and ac.applied_level = #{appliedLevel}</if>
+            <if test="fixedType != null and fixedType != ''">and ac.fixed_type = #{fixedType}</if>
+        </where>
+        order by case ac.department
+                   when '船体组' then 1
+                   when '船机组' then 2
+                   when '船电组' then 3
+                   when '综合组' then 4
+                   else 99
+                 end asc,
+                 ac.department asc,
+                 case ac.applied_level
+                   when '正高级' then 1
+                   when '正高级工程师' then 1
+                   when '副高级' then 2
+                   when '高级工程师' then 2
+                   when '中级' then 3
+                   when '工程师' then 3
+                   when '初级' then 4
+                   when '助理工程师' then 4
+                   when '员级' then 5
+                   when '技术员' then 5
+                   else 99
+                 end asc,
+                 ac.applied_level asc,
+                 case when r.rank_no is null then 1 else 0 end asc,
+                 r.rank_no asc,
+                 ac.import_seq asc,
+                 ac.id asc
+    </select>
+
+    <select id="countResultAggByActivityId" parameterType="Long" resultType="int">
+        select count(1) from ResultAgg where activity_id = #{activityId}
+    </select>
+
+    <select id="selectLatestCalculatedAt" parameterType="Long" resultType="java.util.Date">
+        select max(calculated_at) from ResultAgg where activity_id = #{activityId}
+    </select>
+
+    <insert id="batchInsertResultAgg" parameterType="java.util.List">
+        insert into ResultAgg(activity_id, activity_candidate_id, stat_scope, stat_key,
+                              vote_PASS_count, vote_REJECT_count, total_votes, pass_rate, reject_rate,
+                              rank_no, final_result, update_at, calculated_by, calculated_at)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.activityId}, #{item.activityCandidateId}, #{item.statScope}, #{item.statKey},
+             #{item.votePassCount}, #{item.voteRejectCount}, #{item.totalVotes}, #{item.passRate}, #{item.rejectRate},
+             #{item.rankNo}, #{item.finalResult}, #{item.updateAt}, #{item.calculatedBy}, #{item.calculatedAt})
+        </foreach>
+    </insert>
+
+    <delete id="deleteResultAggByActivityId" parameterType="Long">
+        delete from ResultAgg where activity_id = #{activityId}
+    </delete>
+</mapper>

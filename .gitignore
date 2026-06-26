@@ -1,0 +1,29 @@
+# 忽略 workspace 根目录下的所有文件和文件夹
+/*
+
+# 但保留 .gitignore
+!/.gitignore
+
+# 但保留 backend 文件夹
+!/backend/
+!/fronted/
+
+# Maven 编译输出，不上传
+/backend/target/
+/backend/**/*.class
+
+# 日志文件
+/backend/*.log
+/backend/logs/
+
+# IDEA
+.idea/
+
+# VS Code
+/backend/.vscode/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+.agents/
+.codex/

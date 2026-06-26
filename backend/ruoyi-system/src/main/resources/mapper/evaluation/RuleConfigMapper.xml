@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.evaluation.mapper.RuleConfigMapper">
+    <resultMap type="RuleConfig" id="RuleConfigResult">
+        <id property="id" column="id" />
+        <result property="activityId" column="activity_id" />
+        <result property="passRatio" column="pass_ratio" />
+        <result property="rejectRatio" column="reject_ratio" />
+        <result property="voteType" column="vote_type" />
+        <result property="remark" column="remark" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+    <sql id="selectRuleConfigVo">select id, activity_id, pass_ratio, reject_ratio, vote_type, create_by, create_time, update_by, update_time, remark from RuleConfig</sql>
+    <select id="selectRuleConfigList" parameterType="RuleConfig" resultMap="RuleConfigResult">
+        <include refid="selectRuleConfigVo"/>
+        <where><if test="activityId != null">and activity_id = #{activityId}</if></where>
+        order by id desc
+    </select>
+    <select id="selectRuleConfigById" parameterType="Long" resultMap="RuleConfigResult"><include refid="selectRuleConfigVo"/> where id = #{id}</select>
+    <select id="selectRuleConfigByActivityId" parameterType="Long" resultMap="RuleConfigResult"><include refid="selectRuleConfigVo"/> where activity_id = #{activityId} limit 1</select>
+    <insert id="insertRuleConfig" parameterType="RuleConfig" useGeneratedKeys="true" keyProperty="id">
+        insert into RuleConfig(activity_id, pass_ratio, reject_ratio, vote_type, create_by, create_time, remark)
+        values(#{activityId}, #{passRatio}, #{rejectRatio}, #{voteType}, #{createBy}, sysdate(), #{remark})
+    </insert>
+    <update id="updateRuleConfig" parameterType="RuleConfig">
+        update RuleConfig
+        <set>
+            <if test="activityId != null">activity_id = #{activityId},</if>
+            <if test="passRatio != null">pass_ratio = #{passRatio},</if>
+            <if test="rejectRatio != null">reject_ratio = #{rejectRatio},</if>
+            <if test="voteType != null">vote_type = #{voteType},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+    <delete id="deleteRuleConfigById" parameterType="Long">delete from RuleConfig where id = #{id}</delete>
+    <delete id="deleteRuleConfigByIds" parameterType="Long">delete from RuleConfig where id in <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach></delete>
+    <delete id="deleteRuleConfigByActivityId" parameterType="Long">delete from RuleConfig where activity_id = #{activityId}</delete>
+</mapper>
