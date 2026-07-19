@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VoterServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.service.impl</a> &gt; <span class="el_source">VoterServiceImpl.java</span></div><h1>VoterServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.service.impl;
+
+import java.util.List;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+import org.springframework.web.multipart.MultipartFile;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.evaluation.domain.Activity;
+import com.ruoyi.evaluation.domain.ActivityVoter;
+import com.ruoyi.evaluation.domain.ImportPreviewResult;
+import com.ruoyi.evaluation.domain.Voter;
+import com.ruoyi.evaluation.mapper.ActivityMapper;
+import com.ruoyi.evaluation.mapper.ActivityVoterMapper;
+import com.ruoyi.evaluation.mapper.VoterMapper;
+import com.ruoyi.evaluation.service.IVoterService;
+
+@Service
+<span class="fc" id="L27">public class VoterServiceImpl implements IVoterService</span>
+{
+    @Autowired
+    private VoterMapper voterMapper;
+
+    @Autowired
+    private ActivityVoterMapper activityVoterMapper;
+
+    @Autowired
+    private ActivityMapper activityMapper;
+
+    @Autowired
+    private ExcelImportPreviewService excelImportPreviewService;
+
+    @Override
+    public List&lt;Voter&gt; selectVoterList(Voter voter)
+    {
+<span class="nc bnc" id="L44" title="All 4 branches missed.">        if (voter != null &amp;&amp; voter.getActivityId() != null)</span>
+        {
+<span class="nc" id="L46">            return activityVoterMapper.selectVoterSnapshotList(voter);</span>
+        }
+<span class="nc" id="L48">        return voterMapper.selectVoterList(voter);</span>
+    }
+
+    @Override
+    public Map&lt;String, List&lt;String&gt;&gt; selectVoterOptions()
+    {
+<span class="nc" id="L54">        Map&lt;String, List&lt;String&gt;&gt; options = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L55">        options.put(&quot;employeeIds&quot;, voterMapper.selectVoterOptionValues(&quot;employeeId&quot;));</span>
+<span class="nc" id="L56">        options.put(&quot;departments&quot;, voterMapper.selectVoterOptionValues(&quot;department&quot;));</span>
+<span class="nc" id="L57">        return options;</span>
+    }
+
+    @Override
+<span class="nc" id="L61">    public Voter selectVoterById(Long id) { return voterMapper.selectVoterById(id); }</span>
+
+    @Override
+    public int insertVoter(Voter voter)
+    {
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if (voter.getActivityId() != null)</span>
+        {
+<span class="fc" id="L68">            requireConfigurableActivity(voter.getActivityId());</span>
+<span class="fc" id="L69">            Voter poolVoter = ensurePoolVoter(voter, voter.getCreateBy());</span>
+<span class="fc" id="L70">            return insertSnapshot(voter.getActivityId(), poolVoter, &quot;MANUAL&quot;, null, null, voter.getCreateBy());</span>
+        }
+<span class="nc" id="L72">        assignNextPoolSequence(voter);</span>
+<span class="nc" id="L73">        return voterMapper.insertVoter(voter);</span>
+    }
+
+    @Override
+    public int updateVoter(Voter voter)
+    {
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (voter.getActivityId() != null)</span>
+        {
+<span class="nc" id="L81">            requireConfigurableActivity(voter.getActivityId());</span>
+<span class="nc" id="L82">            return activityVoterMapper.updateVoterSnapshot(voter);</span>
+        }
+<span class="nc" id="L84">        return voterMapper.updateVoter(voter);</span>
+    }
+
+    @Override
+<span class="nc" id="L88">    public int deleteVoterByIds(Long[] ids) { return voterMapper.deleteVoterByIds(ids); }</span>
+
+    @Override
+<span class="nc" id="L91">    public int deleteVoterById(Long id) { return voterMapper.deleteVoterById(id); }</span>
+
+    @Override
+    public int deleteVoterByActivityId(Long activityId)
+    {
+<span class="nc" id="L96">        requireConfigurableActivity(activityId);</span>
+<span class="nc" id="L97">        return activityVoterMapper.deleteActivityVoterByActivityId(activityId);</span>
+    }
+
+    @Override
+    public int regenerateVoteToken(Long id, String username)
+    {
+<span class="fc" id="L103">        ActivityVoter existing = activityVoterMapper.selectActivityVoterById(id);</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (existing == null)</span>
+        {
+<span class="nc" id="L106">            throw new ServiceException(&quot;Activity voter does not exist.&quot;);</span>
+        }
+<span class="fc" id="L108">        requireConfigurableActivity(existing.getActivityId());</span>
+<span class="fc" id="L109">        ActivityVoter voter = new ActivityVoter();</span>
+<span class="fc" id="L110">        voter.setId(id);</span>
+<span class="fc" id="L111">        voter.setVoteToken(UUID.randomUUID().toString().replace(&quot;-&quot;, &quot;&quot;));</span>
+<span class="fc" id="L112">        voter.setUpdateBy(username);</span>
+<span class="fc" id="L113">        return activityVoterMapper.updateActivityVoter(voter);</span>
+    }
+
+    @Override
+    public Map&lt;String, Object&gt; selectVoterProgress(Long activityId)
+    {
+<span class="nc" id="L119">        Activity activity = activityMapper.selectActivityById(activityId);</span>
+<span class="nc" id="L120">        Voter query = new Voter();</span>
+<span class="nc" id="L121">        query.setActivityId(activityId);</span>
+<span class="nc" id="L122">        List&lt;Voter&gt; voters = activityVoterMapper.selectVoterSnapshotList(query);</span>
+<span class="nc" id="L123">        long done = voters.stream().filter(v -&gt; &quot;DONE&quot;.equalsIgnoreCase(v.getStatus())).count();</span>
+<span class="nc" id="L124">        List&lt;Map&lt;String, Object&gt;&gt; pendingVoters = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L125">        List&lt;Map&lt;String, Object&gt;&gt; voterRows = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        for (Voter voter : voters)</span>
+        {
+<span class="nc" id="L128">            boolean submitted = &quot;DONE&quot;.equalsIgnoreCase(voter.getStatus());</span>
+<span class="nc" id="L129">            Map&lt;String, Object&gt; row = buildVoterStatusRow(voter, submitted);</span>
+<span class="nc" id="L130">            voterRows.add(row);</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">            if (!submitted)</span>
+            {
+<span class="nc" id="L133">                pendingVoters.add(row);</span>
+            }
+<span class="nc" id="L135">        }</span>
+<span class="nc" id="L136">        Map&lt;String, Object&gt; progress = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        if (activity != null)</span>
+        {
+<span class="nc" id="L139">            progress.put(&quot;activityId&quot;, activity.getId());</span>
+<span class="nc" id="L140">            progress.put(&quot;activityStatus&quot;, activity.getStatus());</span>
+<span class="nc" id="L141">            progress.put(&quot;status&quot;, activity.getStatus());</span>
+<span class="nc" id="L142">            progress.put(&quot;endTime&quot;, activity.getEndTime());</span>
+        }
+<span class="nc" id="L144">        progress.put(&quot;total&quot;, voters.size());</span>
+<span class="nc" id="L145">        progress.put(&quot;done&quot;, done);</span>
+<span class="nc" id="L146">        progress.put(&quot;submitted&quot;, done);</span>
+<span class="nc" id="L147">        progress.put(&quot;pending&quot;, voters.size() - done);</span>
+<span class="nc" id="L148">        progress.put(&quot;unsubmitted&quot;, voters.size() - done);</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">        progress.put(&quot;rate&quot;, voters.isEmpty() ? BigDecimal.ZERO : BigDecimal.valueOf(done)</span>
+<span class="nc" id="L150">                .multiply(BigDecimal.valueOf(100))</span>
+<span class="nc" id="L151">                .divide(BigDecimal.valueOf(voters.size()), 2, RoundingMode.HALF_UP));</span>
+<span class="nc bnc" id="L152" title="All 4 branches missed.">        progress.put(&quot;allCompleted&quot;, !voters.isEmpty() &amp;&amp; done == voters.size());</span>
+<span class="nc bnc" id="L153" title="All 4 branches missed.">        progress.put(&quot;resultAvailable&quot;, !voters.isEmpty() &amp;&amp; done == voters.size());</span>
+<span class="nc bnc" id="L154" title="All 4 branches missed.">        progress.put(&quot;nextAction&quot;, !voters.isEmpty() &amp;&amp; done == voters.size() ? &quot;CALCULATE_RESULT&quot; : &quot;WAIT_FOR_VOTERS&quot;);</span>
+<span class="nc" id="L155">        progress.put(&quot;pendingVoters&quot;, pendingVoters);</span>
+<span class="nc" id="L156">        progress.put(&quot;voters&quot;, voterRows);</span>
+<span class="nc" id="L157">        return progress;</span>
+    }
+
+    @Override
+    public List&lt;Map&lt;String, Object&gt;&gt; selectVoteLinks(Long activityId, String requestBaseUrl)
+    {
+<span class="nc" id="L163">        Voter query = new Voter();</span>
+<span class="nc" id="L164">        query.setActivityId(activityId);</span>
+<span class="nc" id="L165">        List&lt;Voter&gt; voters = activityVoterMapper.selectVoterSnapshotList(query);</span>
+<span class="nc" id="L166">        List&lt;Map&lt;String, Object&gt;&gt; rows = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L167" title="All 2 branches missed.">        for (Voter voter : voters)</span>
+        {
+<span class="nc" id="L169">            Map&lt;String, Object&gt; row = buildVoterStatusRow(voter, &quot;DONE&quot;.equalsIgnoreCase(voter.getStatus()));</span>
+<span class="nc" id="L170">            row.put(&quot;voteToken&quot;, voter.getVoteToken());</span>
+<span class="nc" id="L171">            row.put(&quot;voteUrl&quot;, requestBaseUrl + &quot;/vote/&quot; + voter.getVoteToken());</span>
+<span class="nc" id="L172">            rows.add(row);</span>
+<span class="nc" id="L173">        }</span>
+<span class="nc" id="L174">        return rows;</span>
+    }
+
+    @Override
+    public ImportPreviewResult previewImport(Long activityId, MultipartFile file, String username) throws Exception
+    {
+<span class="nc" id="L180">        return excelImportPreviewService.preview(activityId, file, &quot;VOTER_IMPORT&quot;, username);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ImportPreviewResult importData(Long activityId, MultipartFile file, boolean updateSupport, String username) throws Exception
+    {
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (activityId == null)</span>
+        {
+<span class="nc" id="L189">            throw new ServiceException(&quot;活动评委导入必须指定活动&quot;);</span>
+        }
+<span class="nc" id="L191">        requireConfigurableActivity(activityId);</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (updateSupport)</span>
+        {
+<span class="nc" id="L194">            activityVoterMapper.deleteActivityVoterByActivityId(activityId);</span>
+        }
+<span class="nc" id="L196">        return excelImportPreviewService.importVoters(activityId, file, username, voterMapper, activityVoterMapper);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ImportPreviewResult importPoolData(MultipartFile file, boolean updateSupport, String username) throws Exception
+    {
+<span class="nc bnc" id="L203" title="All 2 branches missed.">        if (updateSupport)</span>
+        {
+<span class="nc" id="L205">            Voter query = new Voter();</span>
+<span class="nc" id="L206">            query.setPool(true);</span>
+<span class="nc" id="L207">            List&lt;Voter&gt; pool = voterMapper.selectVoterList(query);</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">            for (Voter voter : pool)</span>
+            {
+<span class="nc" id="L210">                voterMapper.deleteVoterById(voter.getId());</span>
+<span class="nc" id="L211">            }</span>
+        }
+<span class="nc" id="L213">        return excelImportPreviewService.importVoters(null, file, username, voterMapper, activityVoterMapper);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int selectFromPool(Long activityId, List&lt;Long&gt; ids, boolean replaceExisting, String username)
+    {
+<span class="nc bnc" id="L220" title="All 2 branches missed.">        if (activityId == null)</span>
+        {
+<span class="nc" id="L222">            throw new ServiceException(&quot;请选择活动&quot;);</span>
+        }
+<span class="nc" id="L224">        requireConfigurableActivity(activityId);</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">        if (CollectionUtils.isEmpty(ids))</span>
+        {
+<span class="nc" id="L227">            throw new ServiceException(&quot;请选择评委资料&quot;);</span>
+        }
+<span class="nc bnc" id="L229" title="All 2 branches missed.">        if (replaceExisting)</span>
+        {
+<span class="nc" id="L231">            activityVoterMapper.deleteActivityVoterByActivityId(activityId);</span>
+        }
+<span class="nc" id="L233">        int inserted = 0;</span>
+<span class="nc bnc" id="L234" title="All 2 branches missed.">        for (Long id : ids)</span>
+        {
+<span class="nc" id="L236">            Voter source = voterMapper.selectVoterById(id);</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">            if (source == null)</span>
+            {
+<span class="nc" id="L239">                continue;</span>
+            }
+<span class="nc" id="L241">            inserted += insertSnapshot(activityId, source, &quot;POOL&quot;, null, null, username);</span>
+<span class="nc" id="L242">        }</span>
+<span class="nc" id="L243">        return inserted;</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int copyFromActivity(Long activityId, Long sourceActivityId, boolean replaceExisting, String username)
+    {
+<span class="nc bnc" id="L250" title="All 4 branches missed.">        if (activityId == null || sourceActivityId == null)</span>
+        {
+<span class="nc" id="L252">            throw new ServiceException(&quot;请选择源活动和目标活动&quot;);</span>
+        }
+<span class="nc" id="L254">        requireConfigurableActivity(activityId);</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">        if (activityId.equals(sourceActivityId))</span>
+        {
+<span class="nc" id="L257">            throw new ServiceException(&quot;不能复制当前活动自身&quot;);</span>
+        }
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        if (replaceExisting)</span>
+        {
+<span class="nc" id="L261">            activityVoterMapper.deleteActivityVoterByActivityId(activityId);</span>
+        }
+<span class="nc" id="L263">        ActivityVoter query = new ActivityVoter();</span>
+<span class="nc" id="L264">        query.setActivityId(sourceActivityId);</span>
+<span class="nc" id="L265">        int inserted = 0;</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        for (ActivityVoter source : activityVoterMapper.selectActivityVoterList(query))</span>
+        {
+<span class="nc" id="L268">            inserted += insertSnapshot(activityId, source, username);</span>
+<span class="nc" id="L269">        }</span>
+<span class="nc" id="L270">        return inserted;</span>
+    }
+
+    private Voter ensurePoolVoter(Voter source, String username)
+    {
+<span class="fc" id="L275">        Voter duplicated = voterMapper.selectVoterByUniqueKey(source);</span>
+<span class="pc bpc" id="L276" title="1 of 2 branches missed.">        if (duplicated != null)</span>
+        {
+<span class="fc" id="L278">            return duplicated;</span>
+        }
+<span class="nc" id="L280">        Voter voter = new Voter();</span>
+<span class="nc" id="L281">        voter.setName(source.getName());</span>
+<span class="nc" id="L282">        voter.setEmployeeId(source.getEmployeeId());</span>
+<span class="nc" id="L283">        voter.setDepartment(source.getDepartment());</span>
+<span class="nc" id="L284">        voter.setRemark(source.getRemark());</span>
+<span class="nc" id="L285">        voter.setCreateBy(username);</span>
+<span class="nc" id="L286">        assignNextPoolSequence(voter);</span>
+<span class="nc" id="L287">        voterMapper.insertVoter(voter);</span>
+<span class="nc" id="L288">        return voter;</span>
+    }
+
+    private int insertSnapshot(Long activityId, Voter source, String sourceType, Long sourceActivityId, Long sourceActivityVoterId, String username)
+    {
+<span class="fc" id="L293">        ActivityVoter snapshot = new ActivityVoter();</span>
+<span class="fc" id="L294">        snapshot.setActivityId(activityId);</span>
+<span class="fc" id="L295">        snapshot.setVoterId(source.getId());</span>
+<span class="fc" id="L296">        snapshot.setImportSeq(source.getImportSeq());</span>
+<span class="fc" id="L297">        snapshot.setSourceType(sourceType);</span>
+<span class="fc" id="L298">        snapshot.setSourceActivityId(sourceActivityId);</span>
+<span class="fc" id="L299">        snapshot.setSourceActivityVoterId(sourceActivityVoterId);</span>
+<span class="fc" id="L300">        snapshot.setName(source.getName());</span>
+<span class="fc" id="L301">        snapshot.setEmployeeId(source.getEmployeeId());</span>
+<span class="fc" id="L302">        snapshot.setDepartment(source.getDepartment());</span>
+<span class="fc" id="L303">        snapshot.setStatus(&quot;PENDING&quot;);</span>
+<span class="fc" id="L304">        snapshot.setVoteToken(UUID.randomUUID().toString().replace(&quot;-&quot;, &quot;&quot;));</span>
+<span class="fc" id="L305">        snapshot.setRemark(source.getRemark());</span>
+<span class="fc" id="L306">        snapshot.setCreateBy(username);</span>
+<span class="fc" id="L307">        return insertSnapshot(snapshot);</span>
+    }
+
+    private int insertSnapshot(Long activityId, ActivityVoter source, String username)
+    {
+<span class="nc" id="L312">        ActivityVoter snapshot = new ActivityVoter();</span>
+<span class="nc" id="L313">        snapshot.setActivityId(activityId);</span>
+<span class="nc" id="L314">        snapshot.setVoterId(source.getVoterId());</span>
+<span class="nc" id="L315">        snapshot.setImportSeq(source.getImportSeq());</span>
+<span class="nc" id="L316">        snapshot.setSourceType(&quot;COPY_ACTIVITY&quot;);</span>
+<span class="nc" id="L317">        snapshot.setSourceActivityId(source.getActivityId());</span>
+<span class="nc" id="L318">        snapshot.setSourceActivityVoterId(source.getId());</span>
+<span class="nc" id="L319">        snapshot.setName(source.getName());</span>
+<span class="nc" id="L320">        snapshot.setEmployeeId(source.getEmployeeId());</span>
+<span class="nc" id="L321">        snapshot.setDepartment(source.getDepartment());</span>
+<span class="nc" id="L322">        snapshot.setStatus(&quot;PENDING&quot;);</span>
+<span class="nc" id="L323">        snapshot.setVoteToken(UUID.randomUUID().toString().replace(&quot;-&quot;, &quot;&quot;));</span>
+<span class="nc" id="L324">        snapshot.setRemark(source.getRemark());</span>
+<span class="nc" id="L325">        snapshot.setCreateBy(username);</span>
+<span class="nc" id="L326">        return insertSnapshot(snapshot);</span>
+    }
+
+    private int insertSnapshot(ActivityVoter snapshot)
+    {
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(snapshot.getName()))</span>
+        {
+<span class="nc" id="L333">            throw new ServiceException(&quot;评委姓名不能为空&quot;);</span>
+        }
+<span class="pc bpc" id="L335" title="1 of 2 branches missed.">        if (activityVoterMapper.selectActivityVoterByUniqueKey(snapshot) != null)</span>
+        {
+<span class="nc" id="L337">            return 0;</span>
+        }
+<span class="fc" id="L339">        return activityVoterMapper.insertActivityVoter(snapshot);</span>
+    }
+
+    private Map&lt;String, Object&gt; buildVoterStatusRow(Voter voter, boolean submitted)
+    {
+<span class="nc" id="L344">        Map&lt;String, Object&gt; row = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L345">        row.put(&quot;id&quot;, voter.getId());</span>
+<span class="nc" id="L346">        row.put(&quot;name&quot;, voter.getName());</span>
+<span class="nc" id="L347">        row.put(&quot;employeeId&quot;, voter.getEmployeeId());</span>
+<span class="nc" id="L348">        row.put(&quot;department&quot;, voter.getDepartment());</span>
+<span class="nc" id="L349">        row.put(&quot;status&quot;, voter.getStatus());</span>
+<span class="nc" id="L350">        row.put(&quot;submitted&quot;, submitted);</span>
+<span class="nc" id="L351">        row.put(&quot;submittedAt&quot;, voter.getSubmittedAt());</span>
+<span class="nc" id="L352">        return row;</span>
+    }
+
+    private void assignNextPoolSequence(Voter voter)
+    {
+<span class="nc bnc" id="L357" title="All 2 branches missed.">        if (voter.getImportSeq() != null)</span>
+        {
+<span class="nc" id="L359">            return;</span>
+        }
+<span class="nc" id="L361">        Integer maxImportSeq = voterMapper.selectMaxImportSeq();</span>
+<span class="nc bnc" id="L362" title="All 2 branches missed.">        voter.setImportSeq((maxImportSeq == null ? 0 : maxImportSeq) + 1);</span>
+<span class="nc" id="L363">    }</span>
+
+    private void requireConfigurableActivity(Long activityId)
+    {
+<span class="fc" id="L367">        Activity activity = activityMapper.selectActivityById(activityId);</span>
+<span class="pc bpc" id="L368" title="1 of 2 branches missed.">        if (activity == null)</span>
+        {
+<span class="nc" id="L370">            throw new ServiceException(&quot;Activity does not exist.&quot;);</span>
+        }
+<span class="fc" id="L372">        String status = activity.getStatus();</span>
+<span class="pc bpc" id="L373" title="2 of 6 branches missed.">        if (!StringUtils.isEmpty(status) &amp;&amp; !&quot;CONFIGURED&quot;.equals(status) &amp;&amp; !&quot;DRAFT&quot;.equals(status))</span>
+        {
+<span class="fc" id="L375">            throw new ServiceException(&quot;Activity voters can only be changed before publishing.&quot;);</span>
+        }
+<span class="fc" id="L377">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,1387 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResultAggServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.service.impl</a> &gt; <span class="el_source">ResultAggServiceImpl.java</span></div><h1>ResultAggServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.service.impl;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.common.config.RuoYiConfig;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.file.FileUtils;
+import com.ruoyi.evaluation.domain.Activity;
+import com.ruoyi.evaluation.domain.ActivityCandidate;
+import com.ruoyi.evaluation.domain.ActivityVoter;
+import com.ruoyi.evaluation.domain.ExportJob;
+import com.ruoyi.evaluation.domain.FinalEvaluation;
+import com.ruoyi.evaluation.domain.ResultAgg;
+import com.ruoyi.evaluation.domain.RuleConfig;
+import com.ruoyi.evaluation.domain.Vote;
+import com.ruoyi.evaluation.mapper.ActivityCandidateMapper;
+import com.ruoyi.evaluation.mapper.ActivityMapper;
+import com.ruoyi.evaluation.mapper.ActivityVoterMapper;
+import com.ruoyi.evaluation.mapper.ExportJobMapper;
+import com.ruoyi.evaluation.mapper.FinalEvaluationMapper;
+import com.ruoyi.evaluation.mapper.ResultAggMapper;
+import com.ruoyi.evaluation.mapper.RuleConfigMapper;
+import com.ruoyi.evaluation.mapper.VoteMapper;
+import com.ruoyi.evaluation.service.IResultAggService;
+import com.ruoyi.evaluation.support.EvaluationTitleUtils;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+@Service
+<span class="fc" id="L62">public class ResultAggServiceImpl implements IResultAggService</span>
+{
+<span class="fc" id="L64">    private static final ZoneId ZONE_SHANGHAI = ZoneId.of(&quot;Asia/Shanghai&quot;);</span>
+<span class="fc" id="L65">    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss&quot;);</span>
+    private static final String SCOPE_CANDIDATE_GROUP = &quot;CANDIDATE_GROUP&quot;;
+    private static final String TYPE_VOTE_SUMMARY = &quot;VOTE_SUMMARY&quot;;
+    private static final String TYPE_STAT_RESULT = &quot;STAT_RESULT&quot;;
+    private static final String TYPE_PASS_DECISION = &quot;PASS_DECISION&quot;;
+    private static final String TYPE_FINAL_DECISION = &quot;FINAL_DECISION&quot;;
+    @Autowired
+    private ActivityMapper activityMapper;
+
+    @Autowired
+    private ActivityCandidateMapper activityCandidateMapper;
+
+    @Autowired
+    private ActivityVoterMapper activityVoterMapper;
+
+    @Autowired
+    private VoteMapper voteMapper;
+
+    @Autowired
+    private RuleConfigMapper ruleConfigMapper;
+
+    @Autowired
+    private ResultAggMapper resultAggMapper;
+
+    @Autowired
+    private ExportJobMapper exportJobMapper;
+
+    @Autowired
+    private FinalEvaluationMapper finalEvaluationMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map&lt;String, Object&gt; calculate(Long activityId, String username, boolean force)
+    {
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        if (activityId == null)</span>
+        {
+<span class="nc" id="L101">            throw new ServiceException(&quot;Activity ID is required.&quot;);</span>
+        }
+<span class="fc" id="L103">        Activity activity = activityMapper.selectActivityByIdForUpdate(activityId);</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (activity == null)</span>
+        {
+<span class="nc" id="L106">            throw new ServiceException(&quot;Activity does not exist.&quot;);</span>
+        }
+<span class="fc" id="L108">        String status = StringUtils.defaultIfEmpty(activity.getStatus(), &quot;DRAFT&quot;);</span>
+<span class="pc bpc" id="L109" title="1 of 4 branches missed.">        if (!&quot;CLOSED&quot;.equals(status) &amp;&amp; !&quot;CALCULATED&quot;.equals(status))</span>
+        {
+<span class="nc" id="L111">            throw new ServiceException(&quot;Only CLOSED activities can be calculated.&quot;);</span>
+        }
+<span class="fc" id="L113">        requireAllVotersDone(activityId);</span>
+<span class="pc bpc" id="L114" title="1 of 4 branches missed.">        if (!force &amp;&amp; resultAggMapper.countResultAggByActivityId(activityId) &gt; 0)</span>
+        {
+<span class="nc" id="L116">            return summary(activityId);</span>
+        }
+
+<span class="fc" id="L119">        List&lt;ActivityCandidate&gt; candidates = loadCandidates(activityId);</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">        if (candidates.isEmpty())</span>
+        {
+<span class="nc" id="L122">            throw new ServiceException(&quot;Activity has no candidate snapshots.&quot;);</span>
+        }
+
+<span class="fc" id="L125">        RuleConfig ruleConfig = ruleConfigMapper.selectRuleConfigByActivityId(activityId);</span>
+<span class="pc bpc" id="L126" title="2 of 4 branches missed.">        if (ruleConfig == null || ruleConfig.getPassRatio() == null)</span>
+        {
+<span class="nc" id="L128">            throw new ServiceException(&quot;Activity rule config is required before calculation.&quot;);</span>
+        }
+
+<span class="fc" id="L131">        List&lt;ResultAgg&gt; resultRows = buildResultRows(activityId, candidates, loadVoteCounts(activityId), ruleConfig, username);</span>
+<span class="fc" id="L132">        resultAggMapper.deleteResultAggByActivityId(activityId);</span>
+<span class="fc" id="L133">        resultAggMapper.batchInsertResultAgg(resultRows);</span>
+
+<span class="fc" id="L135">        Activity update = new Activity();</span>
+<span class="fc" id="L136">        update.setId(activityId);</span>
+<span class="fc" id="L137">        update.setStatus(&quot;CALCULATED&quot;);</span>
+<span class="fc" id="L138">        update.setUpdatedBy(username);</span>
+<span class="fc" id="L139">        activityMapper.updateActivity(update);</span>
+<span class="fc" id="L140">        return summary(activityId);</span>
+    }
+
+    @Override
+    public Map&lt;String, Object&gt; summary(Long activityId)
+    {
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        if (activityId == null)</span>
+        {
+<span class="nc" id="L148">            throw new ServiceException(&quot;Activity ID is required.&quot;);</span>
+        }
+<span class="fc" id="L150">        Activity activity = activityMapper.selectActivityById(activityId);</span>
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">        if (activity == null)</span>
+        {
+<span class="nc" id="L153">            throw new ServiceException(&quot;Activity does not exist.&quot;);</span>
+        }
+
+<span class="fc" id="L156">        List&lt;ActivityCandidate&gt; candidates = loadCandidates(activityId);</span>
+<span class="fc" id="L157">        int voteCandidateCount = activityCandidateMapper.countVoteCandidatesByActivityId(activityId);</span>
+<span class="fc" id="L158">        int totalVoters = activityVoterMapper.countActivityVoterByActivityId(activityId);</span>
+<span class="fc" id="L159">        int doneVoters = activityVoterMapper.countDoneByActivityId(activityId);</span>
+<span class="pc bpc" id="L160" title="1 of 6 branches missed.">        boolean allCompleted = voteCandidateCount == 0 || (totalVoters &gt; 0 &amp;&amp; totalVoters == doneVoters);</span>
+<span class="fc" id="L161">        int resultCount = resultAggMapper.countResultAggByActivityId(activityId);</span>
+<span class="fc" id="L162">        Map&lt;String, Object&gt; data = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L163">        data.put(&quot;activityId&quot;, activity.getId());</span>
+<span class="fc" id="L164">        data.put(&quot;activityName&quot;, activity.getName());</span>
+<span class="fc" id="L165">        data.put(&quot;status&quot;, activity.getStatus());</span>
+<span class="fc" id="L166">        data.put(&quot;activityStatus&quot;, activity.getStatus());</span>
+<span class="fc" id="L167">        data.put(&quot;candidateCount&quot;, candidates.size());</span>
+<span class="fc" id="L168">        data.put(&quot;voteCount&quot;, voteCandidateCount);</span>
+<span class="fc" id="L169">        data.put(&quot;totalVoters&quot;, totalVoters);</span>
+<span class="fc" id="L170">        data.put(&quot;doneVoters&quot;, doneVoters);</span>
+<span class="fc" id="L171">        data.put(&quot;pendingVoters&quot;, Math.max(0, totalVoters - doneVoters));</span>
+<span class="fc" id="L172">        data.put(&quot;allCompleted&quot;, allCompleted);</span>
+<span class="fc" id="L173">        data.put(&quot;resultCount&quot;, resultCount);</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">        data.put(&quot;calculated&quot;, resultCount &gt; 0);</span>
+<span class="fc" id="L175">        data.put(&quot;calculatedAt&quot;, resultAggMapper.selectLatestCalculatedAt(activityId));</span>
+<span class="pc bpc" id="L176" title="4 of 6 branches missed.">        data.put(&quot;canClose&quot;, (&quot;PUBLISHED&quot;.equals(activity.getStatus()) || &quot;VOTING&quot;.equals(activity.getStatus())) &amp;&amp; allCompleted);</span>
+<span class="pc bpc" id="L177" title="1 of 4 branches missed.">        data.put(&quot;canCalculate&quot;, &quot;CLOSED&quot;.equals(activity.getStatus()) &amp;&amp; allCompleted);</span>
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        data.put(&quot;canExport&quot;, resultCount &gt; 0);</span>
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        if (resultCount &gt; 0)</span>
+        {
+<span class="fc" id="L181">            ResultAgg query = new ResultAgg();</span>
+<span class="fc" id="L182">            query.setActivityId(activityId);</span>
+<span class="fc" id="L183">            query.setStatScope(SCOPE_CANDIDATE_GROUP);</span>
+<span class="fc" id="L184">            List&lt;ResultAgg&gt; rows = resultAggMapper.selectResultAggList(query);</span>
+<span class="fc" id="L185">            long passCount = rows.stream().filter(row -&gt; &quot;PASS&quot;.equals(row.getFinalResult())).count();</span>
+<span class="fc" id="L186">            long rejectCount = rows.stream().filter(row -&gt; &quot;REJECT&quot;.equals(row.getFinalResult())).count();</span>
+<span class="fc" id="L187">            data.put(&quot;passCount&quot;, passCount);</span>
+<span class="fc" id="L188">            data.put(&quot;rejectCount&quot;, rejectCount);</span>
+<span class="fc" id="L189">        }</span>
+        else
+        {
+<span class="fc" id="L192">            data.put(&quot;passCount&quot;, 0);</span>
+<span class="fc" id="L193">            data.put(&quot;rejectCount&quot;, 0);</span>
+        }
+<span class="fc" id="L195">        data.put(&quot;calculatedAt&quot;, formatDateTime(resultAggMapper.selectLatestCalculatedAt(activityId)));</span>
+<span class="fc" id="L196">        return data;</span>
+    }
+
+    @Override
+    public List&lt;Map&lt;String, Object&gt;&gt; selectResultAggList(ResultAgg resultAgg)
+    {
+<span class="pc bpc" id="L202" title="2 of 4 branches missed.">        if (resultAgg == null || resultAgg.getActivityId() == null)</span>
+        {
+<span class="nc" id="L204">            throw new ServiceException(&quot;Activity ID is required.&quot;);</span>
+        }
+<span class="pc bpc" id="L206" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(resultAgg.getStatScope()))</span>
+        {
+<span class="fc" id="L208">            resultAgg.setStatScope(SCOPE_CANDIDATE_GROUP);</span>
+        }
+<span class="fc" id="L210">        List&lt;ResultAgg&gt; rows = resultAggMapper.selectResultAggList(resultAgg);</span>
+<span class="fc" id="L211">        return buildGroupSummaryRows(rows);</span>
+    }
+
+    @Override
+    public List&lt;ResultAgg&gt; selectCandidateResultList(ResultAgg resultAgg)
+    {
+<span class="pc bpc" id="L217" title="2 of 4 branches missed.">        if (resultAgg == null || resultAgg.getActivityId() == null)</span>
+        {
+<span class="nc" id="L219">            throw new ServiceException(&quot;Activity ID is required.&quot;);</span>
+        }
+<span class="fc" id="L221">        resultAgg.setStatScope(SCOPE_CANDIDATE_GROUP);</span>
+<span class="fc" id="L222">        return resultAggMapper.selectResultAggList(resultAgg);</span>
+    }
+
+    @Override
+    public Map&lt;String, Object&gt; voteSummary(Long activityId)
+    {
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">        if (activityId == null)</span>
+        {
+<span class="nc" id="L230">            throw new ServiceException(&quot;Activity ID is required.&quot;);</span>
+        }
+<span class="fc" id="L232">        Activity activity = activityMapper.selectActivityById(activityId);</span>
+<span class="pc bpc" id="L233" title="1 of 2 branches missed.">        if (activity == null)</span>
+        {
+<span class="nc" id="L235">            throw new ServiceException(&quot;Activity does not exist.&quot;);</span>
+        }
+<span class="fc" id="L237">        ResultAgg query = new ResultAgg();</span>
+<span class="fc" id="L238">        query.setActivityId(activityId);</span>
+<span class="fc" id="L239">        query.setStatScope(SCOPE_CANDIDATE_GROUP);</span>
+<span class="fc" id="L240">        List&lt;ResultAgg&gt; rows = resultAggMapper.selectResultAggList(query);</span>
+<span class="fc" id="L241">        List&lt;Vote&gt; details = voteMapper.selectVoteDetailByActivityId(activityId);</span>
+<span class="fc" id="L242">        Map&lt;String, Object&gt; data = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L243">        data.put(&quot;activityId&quot;, activityId);</span>
+<span class="fc" id="L244">        data.put(&quot;summaryRows&quot;, voteSummaryRows(activityId, rows));</span>
+<span class="fc" id="L245">        data.put(&quot;detailRows&quot;, voteDetailRows(details));</span>
+<span class="fc" id="L246">        data.put(&quot;displayRows&quot;, voteDisplayRows(rows));</span>
+<span class="fc" id="L247">        return data;</span>
+    }
+
+    @Override
+    public Map&lt;String, Object&gt; publicResult(Long activityId)
+    {
+<span class="fc" id="L253">        Map&lt;String, Object&gt; data = summary(activityId);</span>
+<span class="fc" id="L254">        boolean allCompleted = Boolean.TRUE.equals(data.get(&quot;allCompleted&quot;));</span>
+<span class="fc" id="L255">        boolean calculated = Boolean.TRUE.equals(data.get(&quot;calculated&quot;));</span>
+<span class="fc" id="L256">        data.put(&quot;activityStatus&quot;, data.get(&quot;status&quot;));</span>
+<span class="pc bpc" id="L257" title="1 of 4 branches missed.">        if (!allCompleted || !calculated)</span>
+        {
+<span class="fc" id="L259">            data.put(&quot;resultRows&quot;, new ArrayList&lt;&gt;());</span>
+<span class="fc" id="L260">            return data;</span>
+        }
+
+<span class="fc" id="L263">        ResultAgg query = new ResultAgg();</span>
+<span class="fc" id="L264">        query.setActivityId(activityId);</span>
+<span class="fc" id="L265">        query.setStatScope(SCOPE_CANDIDATE_GROUP);</span>
+<span class="fc" id="L266">        List&lt;ResultAgg&gt; rows = resultAggMapper.selectResultAggList(query);</span>
+<span class="fc" id="L267">        data.put(&quot;resultRows&quot;, rows.stream()</span>
+<span class="fc" id="L268">                .map(this::toPublicResultRow)</span>
+<span class="fc" id="L269">                .collect(Collectors.toList()));</span>
+<span class="fc" id="L270">        return data;</span>
+    }
+
+    @Override
+    public void exportResult(HttpServletResponse response, Long activityId, String exportType, String username)
+    {
+<span class="nc" id="L276">        ExportJob job = export(activityId, exportType, username);</span>
+        try
+        {
+<span class="nc" id="L279">            File target = new File(RuoYiConfig.getDownloadPath(), job.getFileName().replace(&quot;/&quot;, File.separator));</span>
+<span class="nc" id="L280">            FileUtils.setAttachmentResponseHeader(response, target.getName());</span>
+<span class="nc" id="L281">            FileUtils.writeBytes(target.getPath(), response.getOutputStream());</span>
+        }
+<span class="nc" id="L283">        catch (Exception e)</span>
+        {
+<span class="nc" id="L285">            throw new ServiceException(&quot;Result export download failed: &quot; + e.getMessage());</span>
+<span class="nc" id="L286">        }</span>
+<span class="nc" id="L287">    }</span>
+
+    public ExportJob export(Long activityId, String exportType, String username)
+    {
+<span class="pc bpc" id="L291" title="1 of 2 branches missed.">        if (activityId == null)</span>
+        {
+<span class="nc" id="L293">            throw new ServiceException(&quot;Activity ID is required.&quot;);</span>
+        }
+<span class="fc" id="L295">        String type = normalizeExportType(exportType);</span>
+<span class="fc" id="L296">        ExportJob job = new ExportJob();</span>
+<span class="fc" id="L297">        job.setActivityId(activityId);</span>
+<span class="fc" id="L298">        job.setJobType(&quot;EXPORT&quot;);</span>
+<span class="fc" id="L299">        job.setExportType(type);</span>
+<span class="fc" id="L300">        job.setGeneratedBy(username);</span>
+        try
+        {
+<span class="fc" id="L303">            Activity activity = activityMapper.selectActivityById(activityId);</span>
+<span class="pc bpc" id="L304" title="1 of 2 branches missed.">            if (activity == null)</span>
+            {
+<span class="nc" id="L306">                throw new ServiceException(&quot;Activity does not exist.&quot;);</span>
+            }
+<span class="pc bpc" id="L308" title="1 of 2 branches missed.">            if (resultAggMapper.countResultAggByActivityId(activityId) == 0)</span>
+            {
+<span class="nc" id="L310">                throw new ServiceException(&quot;Please calculate results before export.&quot;);</span>
+            }
+<span class="fc" id="L312">            ResultAgg query = new ResultAgg();</span>
+<span class="fc" id="L313">            query.setActivityId(activityId);</span>
+<span class="fc" id="L314">            query.setStatScope(SCOPE_CANDIDATE_GROUP);</span>
+<span class="fc" id="L315">            List&lt;ResultAgg&gt; rows = resultAggMapper.selectResultAggList(query);</span>
+<span class="fc bfc" id="L316" title="All 2 branches covered.">            if (TYPE_FINAL_DECISION.equals(type))</span>
+            {
+<span class="fc" id="L318">                applyConfirmedFinalEvaluation(activityId, rows);</span>
+            }
+<span class="fc" id="L320">            String relativeFileName = writeExportFile(activity, rows, ruleConfigMapper.selectRuleConfigByActivityId(activityId), type);</span>
+<span class="fc" id="L321">            job.setStatus(&quot;SUCCESS&quot;);</span>
+<span class="fc" id="L322">            job.setFileName(relativeFileName);</span>
+<span class="fc" id="L323">            job.setFileUrl(downloadUrl(relativeFileName));</span>
+<span class="fc" id="L324">            exportJobMapper.insertExportJob(job);</span>
+<span class="fc" id="L325">            markExported(activityId, type, username);</span>
+<span class="fc" id="L326">            return job;</span>
+        }
+<span class="fc" id="L328">        catch (Exception e)</span>
+        {
+<span class="fc" id="L330">            job.setStatus(&quot;FAILED&quot;);</span>
+<span class="fc" id="L331">            job.setErrorMessage(limit(e.getMessage()));</span>
+<span class="fc" id="L332">            exportJobMapper.insertExportJob(job);</span>
+<span class="pc bpc" id="L333" title="1 of 2 branches missed.">            if (e instanceof ServiceException)</span>
+            {
+<span class="fc" id="L335">                throw (ServiceException) e;</span>
+            }
+<span class="nc" id="L337">            throw new ServiceException(&quot;Result export failed: &quot; + e.getMessage());</span>
+        }
+    }
+
+    private List&lt;ActivityCandidate&gt; loadCandidates(Long activityId)
+    {
+<span class="fc" id="L343">        return activityCandidateMapper.selectAllCandidatesByActivityId(activityId);</span>
+    }
+
+    private void requireAllVotersDone(Long activityId)
+    {
+<span class="fc bfc" id="L348" title="All 2 branches covered.">        if (activityCandidateMapper.countVoteCandidatesByActivityId(activityId) == 0)</span>
+        {
+<span class="fc" id="L350">            return;</span>
+        }
+<span class="fc" id="L352">        int total = activityVoterMapper.countActivityVoterByActivityId(activityId);</span>
+<span class="fc" id="L353">        int done = activityVoterMapper.countDoneByActivityId(activityId);</span>
+<span class="pc bpc" id="L354" title="1 of 2 branches missed.">        if (total &lt;= 0)</span>
+        {
+<span class="nc" id="L356">            throw new ServiceException(&quot;Activity has no voters.&quot;);</span>
+        }
+<span class="fc bfc" id="L358" title="All 2 branches covered.">        if (done != total)</span>
+        {
+<span class="fc" id="L360">            throw new ServiceException(&quot;All voters must submit before close or calculation. Pending voters: &quot; + (total - done));</span>
+        }
+<span class="fc" id="L362">    }</span>
+
+    private Map&lt;Long, VoteCounts&gt; loadVoteCounts(Long activityId)
+    {
+<span class="fc" id="L366">        Map&lt;Long, VoteCounts&gt; counts = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L367" title="All 2 branches covered.">        for (Vote summary : voteMapper.selectVoteSummaryByActivityId(activityId))</span>
+        {
+<span class="fc" id="L369">            VoteCounts row = counts.computeIfAbsent(summary.getActivityCandidateId(), key -&gt; new VoteCounts());</span>
+<span class="pc bpc" id="L370" title="1 of 2 branches missed.">            int count = summary.getVoteCount() == null ? 0 : summary.getVoteCount();</span>
+<span class="fc bfc" id="L371" title="All 2 branches covered.">            if (&quot;PASS&quot;.equals(summary.getResult()))</span>
+            {
+<span class="fc" id="L373">                row.pass = count;</span>
+            }
+<span class="pc bpc" id="L375" title="1 of 2 branches missed.">            else if (&quot;REJECT&quot;.equals(summary.getResult()))</span>
+            {
+<span class="fc" id="L377">                row.reject = count;</span>
+            }
+<span class="fc" id="L379">        }</span>
+<span class="fc" id="L380">        return counts;</span>
+    }
+
+    private List&lt;ResultAgg&gt; buildResultRows(Long activityId, List&lt;ActivityCandidate&gt; candidates,
+            Map&lt;Long, VoteCounts&gt; counts, RuleConfig ruleConfig, String username)
+    {
+<span class="fc" id="L386">        List&lt;ResultRow&gt; workingRows = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">        for (ActivityCandidate candidate : candidates)</span>
+        {
+<span class="fc" id="L389">            VoteCounts voteCounts = counts.getOrDefault(candidate.getId(), new VoteCounts());</span>
+<span class="fc" id="L390">            ResultRow row = new ResultRow();</span>
+<span class="fc" id="L391">            row.candidate = candidate;</span>
+<span class="fc" id="L392">            row.pass = voteCounts.pass;</span>
+<span class="fc" id="L393">            row.reject = voteCounts.reject;</span>
+<span class="fc" id="L394">            workingRows.add(row);</span>
+<span class="fc" id="L395">        }</span>
+
+<span class="fc" id="L397">        Map&lt;String, List&lt;ResultRow&gt;&gt; grouped = workingRows.stream()</span>
+<span class="fc" id="L398">                .collect(Collectors.groupingBy(this::groupKey, LinkedHashMap::new, Collectors.toList()));</span>
+<span class="fc bfc" id="L399" title="All 2 branches covered.">        for (Map.Entry&lt;String, List&lt;ResultRow&gt;&gt; entry : grouped.entrySet())</span>
+        {
+<span class="fc" id="L401">            assignGroupResult(entry.getValue(), ruleConfig);</span>
+<span class="fc" id="L402">        }</span>
+
+<span class="fc" id="L404">        Date now = new Date();</span>
+<span class="fc" id="L405">        List&lt;ResultAgg&gt; resultRows = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L406" title="All 2 branches covered.">        for (ResultRow row : workingRows)</span>
+        {
+<span class="fc" id="L408">            resultRows.add(toResultAgg(activityId, row, username, now));</span>
+<span class="fc" id="L409">        }</span>
+<span class="fc" id="L410">        return resultRows;</span>
+    }
+
+    private List&lt;Map&lt;String, Object&gt;&gt; buildGroupSummaryRows(List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L415">        Map&lt;String, GroupSummary&gt; grouped = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L416" title="All 2 branches covered.">        for (ResultAgg row : rows)</span>
+        {
+<span class="fc" id="L418">            String department = text(row.getDepartment());</span>
+<span class="fc" id="L419">            String appliedLevel = text(row.getAppliedLevel());</span>
+<span class="fc" id="L420">            String key = department + &quot;\u0000&quot; + appliedLevel;</span>
+<span class="fc" id="L421">            GroupSummary summary = grouped.computeIfAbsent(key, unused -&gt; new GroupSummary(department, appliedLevel));</span>
+<span class="fc" id="L422">            summary.candidateCount++;</span>
+<span class="fc" id="L423">            summary.passCount += value(row.getFinalResult(), &quot;PASS&quot;);</span>
+<span class="fc" id="L424">            summary.rejectCount += value(row.getFinalResult(), &quot;REJECT&quot;);</span>
+<span class="fc" id="L425">            summary.thirdLevelDepartments.add(text(row.getThirdLevelDepartment()));</span>
+<span class="fc" id="L426">            summary.calculatedAt = latestTime(summary.calculatedAt, row.getCalculatedAt());</span>
+<span class="fc" id="L427">        }</span>
+
+<span class="fc" id="L429">        List&lt;Map&lt;String, Object&gt;&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L430" title="All 2 branches covered.">        for (GroupSummary summary : grouped.values())</span>
+        {
+<span class="fc" id="L432">            Map&lt;String, Object&gt; row = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L433">            row.put(&quot;department&quot;, summary.department);</span>
+<span class="fc" id="L434">            row.put(&quot;appliedLevel&quot;, summary.appliedLevel);</span>
+<span class="fc" id="L435">            row.put(&quot;candidateCount&quot;, summary.candidateCount);</span>
+<span class="fc" id="L436">            row.put(&quot;passCount&quot;, summary.passCount);</span>
+<span class="fc" id="L437">            row.put(&quot;rejectCount&quot;, summary.rejectCount);</span>
+<span class="fc" id="L438">            row.put(&quot;thirdLevelDepartment&quot;, String.join(&quot;、&quot;, summary.thirdLevelDepartments));</span>
+<span class="fc" id="L439">            row.put(&quot;passRate&quot;, rate(summary.passCount, summary.candidateCount));</span>
+<span class="fc" id="L440">            row.put(&quot;rejectRate&quot;, rate(summary.rejectCount, summary.candidateCount));</span>
+<span class="fc" id="L441">            row.put(&quot;calculatedAt&quot;, formatDateTime(summary.calculatedAt));</span>
+<span class="fc" id="L442">            result.add(row);</span>
+<span class="fc" id="L443">        }</span>
+<span class="fc" id="L444">        result.sort(Comparator</span>
+<span class="pc" id="L445">                .comparing((Map&lt;String, Object&gt; row) -&gt; departmentRank(text(row.get(&quot;department&quot;))))</span>
+<span class="pc" id="L446">                .thenComparing(row -&gt; text(row.get(&quot;department&quot;)))</span>
+<span class="pc" id="L447">                .thenComparing((Map&lt;String, Object&gt; row) -&gt; levelRank(text(row.get(&quot;appliedLevel&quot;))))</span>
+<span class="pc" id="L448">                .thenComparing(row -&gt; text(row.get(&quot;appliedLevel&quot;)))</span>
+<span class="pc" id="L449">                .thenComparing((Map&lt;String, Object&gt; row) -&gt; -intValue(row.get(&quot;passCount&quot;)))</span>
+<span class="pc" id="L450">                .thenComparing((Map&lt;String, Object&gt; row) -&gt; intValue(row.get(&quot;rejectCount&quot;)))</span>
+<span class="pc" id="L451">                .thenComparing((Map&lt;String, Object&gt; row) -&gt; text(row.get(&quot;calculatedAt&quot;))));</span>
+<span class="fc" id="L452">        return result;</span>
+    }
+
+    private Map&lt;String, Object&gt; toPublicResultRow(ResultAgg row)
+    {
+<span class="fc" id="L457">        Map&lt;String, Object&gt; publicRow = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L458">        publicRow.put(&quot;activityCandidateId&quot;, row.getActivityCandidateId());</span>
+<span class="fc" id="L459">        publicRow.put(&quot;importSeq&quot;, row.getImportSeq());</span>
+<span class="fc" id="L460">        publicRow.put(&quot;name&quot;, row.getCandidateName());</span>
+<span class="fc" id="L461">        publicRow.put(&quot;company&quot;, row.getCompany());</span>
+<span class="fc" id="L462">        publicRow.put(&quot;position&quot;, row.getPosition());</span>
+<span class="fc" id="L463">        publicRow.put(&quot;department&quot;, row.getDepartment());</span>
+<span class="fc" id="L464">        publicRow.put(&quot;thirdLevelDepartment&quot;, row.getThirdLevelDepartment());</span>
+<span class="fc" id="L465">        publicRow.put(&quot;appliedLevel&quot;, row.getAppliedLevel());</span>
+<span class="fc" id="L466">        publicRow.put(&quot;passCount&quot;, row.getVotePassCount());</span>
+<span class="fc" id="L467">        publicRow.put(&quot;rejectCount&quot;, row.getVoteRejectCount());</span>
+<span class="fc" id="L468">        publicRow.put(&quot;totalVotes&quot;, row.getTotalVotes());</span>
+<span class="fc" id="L469">        publicRow.put(&quot;passRate&quot;, row.getPassRate());</span>
+<span class="fc" id="L470">        publicRow.put(&quot;rejectRate&quot;, row.getRejectRate());</span>
+<span class="fc" id="L471">        publicRow.put(&quot;rankNo&quot;, row.getRankNo());</span>
+<span class="fc" id="L472">        publicRow.put(&quot;fixedType&quot;, row.getFixedType());</span>
+<span class="fc" id="L473">        publicRow.put(&quot;finalResult&quot;, row.getFinalResult());</span>
+<span class="fc" id="L474">        return publicRow;</span>
+    }
+
+    private int value(String finalResult, String expected)
+    {
+<span class="pc bpc" id="L479" title="1 of 2 branches missed.">        if (expected == null)</span>
+        {
+<span class="nc" id="L481">            return 0;</span>
+        }
+<span class="fc bfc" id="L483" title="All 2 branches covered.">        return expected.equals(finalResult) ? 1 : 0;</span>
+    }
+
+    private Date latestTime(Date current, Date next)
+    {
+<span class="pc bpc" id="L488" title="1 of 2 branches missed.">        if (next == null)</span>
+        {
+<span class="nc" id="L490">            return current;</span>
+        }
+<span class="fc bfc" id="L492" title="All 2 branches covered.">        if (current == null)</span>
+        {
+<span class="fc" id="L494">            return next;</span>
+        }
+<span class="pc bpc" id="L496" title="1 of 2 branches missed.">        return next.after(current) ? next : current;</span>
+    }
+
+    private int intValue(Object value)
+    {
+<span class="pc bpc" id="L501" title="1 of 2 branches missed.">        if (value instanceof Number)</span>
+        {
+<span class="fc" id="L503">            return ((Number) value).intValue();</span>
+        }
+<span class="nc bnc" id="L505" title="All 2 branches missed.">        if (value == null)</span>
+        {
+<span class="nc" id="L507">            return 0;</span>
+        }
+        try
+        {
+<span class="nc" id="L511">            return Integer.parseInt(String.valueOf(value));</span>
+        }
+<span class="nc" id="L513">        catch (Exception e)</span>
+        {
+<span class="nc" id="L515">            return 0;</span>
+        }
+    }
+
+    private int departmentRank(String department)
+    {
+<span class="pc bpc" id="L521" title="1 of 2 branches missed.">        if (&quot;船体组&quot;.equals(department))</span>
+        {
+<span class="fc" id="L523">            return 1;</span>
+        }
+<span class="nc bnc" id="L525" title="All 2 branches missed.">        if (&quot;船机组&quot;.equals(department))</span>
+        {
+<span class="nc" id="L527">            return 2;</span>
+        }
+<span class="nc bnc" id="L529" title="All 2 branches missed.">        if (&quot;船电组&quot;.equals(department))</span>
+        {
+<span class="nc" id="L531">            return 3;</span>
+        }
+<span class="nc bnc" id="L533" title="All 2 branches missed.">        if (&quot;综合组&quot;.equals(department))</span>
+        {
+<span class="nc" id="L535">            return 4;</span>
+        }
+<span class="nc" id="L537">        return 99;</span>
+    }
+
+    private int levelRank(String level)
+    {
+<span class="fc" id="L542">        return EvaluationTitleUtils.levelRank(level);</span>
+    }
+
+    private void assignGroupResult(List&lt;ResultRow&gt; group, RuleConfig ruleConfig)
+    {
+<span class="pc bpc" id="L547" title="1 of 4 branches missed.">        if (!group.isEmpty() &amp;&amp; isAutoPassLevel(group.get(0).candidate.getAppliedLevel()))</span>
+        {
+<span class="fc bfc" id="L549" title="All 2 branches covered.">            for (ResultRow row : group)</span>
+            {
+<span class="fc" id="L551">                row.rankNo = row.candidate.getImportSeq();</span>
+<span class="fc" id="L552">                row.finalResult = &quot;PASS&quot;;</span>
+<span class="fc" id="L553">            }</span>
+<span class="fc" id="L554">            return;</span>
+        }
+<span class="fc" id="L556">        int maxPass = maxPassCount(group, ruleConfig);</span>
+<span class="fc" id="L557">        int fixedPassCount = 0;</span>
+<span class="fc bfc" id="L558" title="All 2 branches covered.">        for (ResultRow row : group)</span>
+        {
+<span class="fc bfc" id="L560" title="All 2 branches covered.">            if (&quot;PASS&quot;.equals(row.candidate.getFixedType()))</span>
+            {
+<span class="fc" id="L562">                row.rankNo = row.candidate.getImportSeq();</span>
+<span class="fc" id="L563">                row.finalResult = &quot;PASS&quot;;</span>
+<span class="fc" id="L564">                fixedPassCount++;</span>
+            }
+<span class="fc bfc" id="L566" title="All 2 branches covered.">            else if (&quot;REJECT&quot;.equals(row.candidate.getFixedType()))</span>
+            {
+<span class="fc" id="L568">                row.rankNo = row.candidate.getImportSeq();</span>
+<span class="fc" id="L569">                row.finalResult = &quot;REJECT&quot;;</span>
+            }
+<span class="fc" id="L571">        }</span>
+<span class="fc" id="L572">        int remainingPass = Math.max(0, maxPass - fixedPassCount);</span>
+<span class="fc" id="L573">        List&lt;ResultRow&gt; voteRows = group.stream()</span>
+<span class="fc" id="L574">                .filter(row -&gt; &quot;VOTE&quot;.equals(row.candidate.getFixedType()))</span>
+<span class="fc" id="L575">                .sorted(voteRankComparator())</span>
+<span class="fc" id="L576">                .collect(Collectors.toList());</span>
+<span class="fc" id="L577">        int rank = 1;</span>
+<span class="fc bfc" id="L578" title="All 2 branches covered.">        for (ResultRow row : voteRows)</span>
+        {
+<span class="fc" id="L580">            row.rankNo = rank++;</span>
+<span class="fc bfc" id="L581" title="All 2 branches covered.">            if (remainingPass &gt; 0)</span>
+            {
+<span class="fc" id="L583">                row.finalResult = &quot;PASS&quot;;</span>
+<span class="fc" id="L584">                remainingPass--;</span>
+            }
+            else
+            {
+<span class="fc" id="L588">                row.finalResult = &quot;REJECT&quot;;</span>
+            }
+<span class="fc" id="L590">        }</span>
+<span class="fc" id="L591">    }</span>
+
+    private int maxPassCount(List&lt;ResultRow&gt; group, RuleConfig ruleConfig)
+    {
+<span class="pc bpc" id="L595" title="2 of 4 branches missed.">        if (group == null || group.isEmpty())</span>
+        {
+<span class="nc" id="L597">            return 0;</span>
+        }
+<span class="pc bpc" id="L599" title="1 of 2 branches missed.">        if (isAutoPassLevel(group.get(0).candidate.getAppliedLevel()))</span>
+        {
+<span class="nc" id="L601">            return group.size();</span>
+        }
+<span class="fc" id="L603">        return ratioCount(group.size(), ruleConfig.getPassRatio());</span>
+    }
+
+    private ResultAgg toResultAgg(Long activityId, ResultRow row, String username, Date now)
+    {
+<span class="fc" id="L608">        int total = row.pass + row.reject;</span>
+<span class="fc" id="L609">        ResultAgg result = new ResultAgg();</span>
+<span class="fc" id="L610">        result.setActivityId(activityId);</span>
+<span class="fc" id="L611">        result.setActivityCandidateId(row.candidate.getId());</span>
+<span class="fc" id="L612">        result.setStatScope(SCOPE_CANDIDATE_GROUP);</span>
+<span class="fc" id="L613">        result.setStatKey(groupKey(row));</span>
+<span class="fc" id="L614">        result.setVotePassCount(row.pass);</span>
+<span class="fc" id="L615">        result.setVoteRejectCount(row.reject);</span>
+<span class="fc" id="L616">        result.setTotalVotes(total);</span>
+<span class="fc" id="L617">        result.setPassRate(rate(row.pass, total));</span>
+<span class="fc" id="L618">        result.setRejectRate(rate(row.reject, total));</span>
+<span class="fc" id="L619">        result.setRankNo(row.rankNo);</span>
+<span class="fc" id="L620">        result.setFinalResult(row.finalResult);</span>
+<span class="fc" id="L621">        result.setUpdateAt(now);</span>
+<span class="fc" id="L622">        result.setCalculatedBy(username);</span>
+<span class="fc" id="L623">        result.setCalculatedAt(now);</span>
+<span class="fc" id="L624">        return result;</span>
+    }
+
+    private String writeExportFile(Activity activity, List&lt;ResultAgg&gt; rows, RuleConfig ruleConfig, String type) throws Exception
+    {
+<span class="fc" id="L629">        List&lt;ResultAgg&gt; exportRows = exportRows(rows);</span>
+<span class="fc" id="L630">        String relativeFileName = DateUtils.datePath() + &quot;/&quot; + exportFileName(activity.getId(), type);</span>
+<span class="fc" id="L631">        File target = new File(RuoYiConfig.getDownloadPath(), relativeFileName.replace(&quot;/&quot;, File.separator));</span>
+<span class="fc" id="L632">        File parent = target.getParentFile();</span>
+<span class="pc bpc" id="L633" title="2 of 6 branches missed.">        if (parent != null &amp;&amp; !parent.exists() &amp;&amp; !parent.mkdirs())</span>
+        {
+<span class="nc" id="L635">            throw new ServiceException(&quot;Failed to create export directory.&quot;);</span>
+        }
+
+<span class="fc bfc" id="L638" title="All 2 branches covered.">        if (TYPE_STAT_RESULT.equals(type))</span>
+        {
+<span class="fc" id="L640">            writeDepartmentZip(target, exportRows);</span>
+<span class="fc" id="L641">            return relativeFileName;</span>
+        }
+
+<span class="fc" id="L644">        try (XSSFWorkbook workbook = new XSSFWorkbook(); FileOutputStream output = new FileOutputStream(target))</span>
+        {
+<span class="fc" id="L646">            CellStyle headerStyle = headerStyle(workbook);</span>
+<span class="fc bfc" id="L647" title="All 2 branches covered.">            if (TYPE_VOTE_SUMMARY.equals(type))</span>
+            {
+<span class="fc" id="L649">                writeFigure2(workbook, headerStyle, activity.getId(), exportRows);</span>
+            }
+<span class="fc bfc" id="L651" title="All 2 branches covered.">            else if (TYPE_PASS_DECISION.equals(type))</span>
+            {
+<span class="fc" id="L653">                writeFigure4(workbook, headerStyle, exportRows);</span>
+            }
+<span class="pc bpc" id="L655" title="1 of 2 branches missed.">            else if (TYPE_FINAL_DECISION.equals(type))</span>
+            {
+<span class="fc" id="L657">                writeFinalDecision(workbook, headerStyle, exportRows);</span>
+            }
+            else
+            {
+<span class="nc" id="L661">                writeFigure3(workbook, headerStyle, exportRows, ruleConfig);</span>
+            }
+<span class="fc" id="L663">            workbook.write(output);</span>
+        }
+<span class="fc" id="L665">        return relativeFileName;</span>
+    }
+
+    private void writeFigure2(XSSFWorkbook workbook, CellStyle headerStyle, Long activityId, List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L670">        Sheet summarySheet = workbook.createSheet(&quot;投票情况&quot;);</span>
+<span class="fc" id="L671">        writeHeader(summarySheet, headerStyle, 0, &quot;主体名称&quot;, &quot;人数&quot;, &quot;未投票&quot;, &quot;未提交&quot;, &quot;已投票&quot;);</span>
+<span class="fc" id="L672">        int summaryRowNo = 1;</span>
+<span class="fc bfc" id="L673" title="All 2 branches covered.">        for (Map&lt;String, Object&gt; summary : voteSummaryRows(activityId, rows))</span>
+        {
+<span class="fc" id="L675">            Row row = summarySheet.createRow(summaryRowNo++);</span>
+<span class="fc" id="L676">            cell(row, 0, summary.get(&quot;subjectName&quot;));</span>
+<span class="fc" id="L677">            cell(row, 1, summary.get(&quot;total&quot;));</span>
+<span class="fc" id="L678">            cell(row, 2, summary.get(&quot;notVoted&quot;));</span>
+<span class="fc" id="L679">            cell(row, 3, summary.get(&quot;notSubmitted&quot;));</span>
+<span class="fc" id="L680">            cell(row, 4, summary.get(&quot;voted&quot;));</span>
+<span class="fc" id="L681">        }</span>
+<span class="fc" id="L682">        autosize(summarySheet, 5);</span>
+
+<span class="fc" id="L684">        List&lt;Vote&gt; detailRows = voteMapper.selectVoteDetailByActivityId(activityId);</span>
+<span class="fc" id="L685">        Map&lt;String, List&lt;Vote&gt;&gt; detailByDepartment = detailRows.stream()</span>
+<span class="fc" id="L686">                .collect(Collectors.groupingBy(vote -&gt; text(vote.getVoterDepartment()), LinkedHashMap::new, Collectors.toList()));</span>
+<span class="fc" id="L687">        List&lt;String&gt; departments = sortedVoteDepartments(voteSummaryRows(activityId, rows), detailByDepartment);</span>
+<span class="fc" id="L688">        int sheetNo = 1;</span>
+<span class="fc bfc" id="L689" title="All 2 branches covered.">        for (String department : departments)</span>
+        {
+<span class="fc" id="L691">            Sheet detailSheet = workbook.createSheet(safeSheetName(sheetNo + &quot;、&quot; + StringUtils.defaultIfEmpty(department, &quot;未分组&quot;)));</span>
+<span class="fc" id="L692">            writeHeader(detailSheet, headerStyle, 0, &quot;序列码&quot;, &quot;推荐类别&quot;, &quot;候选人&quot;, &quot;编号&quot;, &quot;单位&quot;, &quot;部门&quot;, &quot;岗位&quot;, &quot;投票情况&quot;);</span>
+<span class="fc" id="L693">            int rowNo = 1;</span>
+<span class="fc bfc" id="L694" title="All 2 branches covered.">            for (Vote detail : detailByDepartment.getOrDefault(department, new ArrayList&lt;&gt;()))</span>
+            {
+<span class="fc" id="L696">                Row row = detailSheet.createRow(rowNo++);</span>
+<span class="fc" id="L697">                cell(row, 0, voteSequenceCode(detail));</span>
+<span class="fc" id="L698">                cell(row, 1, recommendationCategory(detail));</span>
+<span class="fc" id="L699">                cell(row, 2, detail.getCandidateName());</span>
+<span class="fc" id="L700">                cell(row, 3, detail.getImportSeq());</span>
+<span class="fc" id="L701">                cell(row, 4, detail.getCompany());</span>
+<span class="fc" id="L702">                cell(row, 5, candidateDepartmentLevel(detail));</span>
+<span class="fc" id="L703">                cell(row, 6, detail.getPosition());</span>
+<span class="fc" id="L704">                cell(row, 7, voteResultText(detail.getResult()));</span>
+<span class="fc" id="L705">            }</span>
+<span class="fc" id="L706">            autosize(detailSheet, 8);</span>
+<span class="fc" id="L707">            sheetNo++;</span>
+<span class="fc" id="L708">        }</span>
+<span class="fc" id="L709">    }</span>
+
+    private List&lt;Map&lt;String, Object&gt;&gt; voteSummaryRows(Long activityId, List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L713">        Map&lt;String, VoterGroupStats&gt; grouped = loadVoterGroupStats(activityId, rows);</span>
+<span class="fc" id="L714">        List&lt;Map&lt;String, Object&gt;&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L715" title="All 2 branches covered.">        for (VoterGroupStats stats : grouped.values())</span>
+        {
+<span class="fc" id="L717">            Map&lt;String, Object&gt; row = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L718">            int pending = Math.max(0, stats.total - stats.done);</span>
+<span class="fc" id="L719">            row.put(&quot;subjectName&quot;, stats.department);</span>
+<span class="fc" id="L720">            row.put(&quot;total&quot;, stats.total);</span>
+<span class="fc" id="L721">            row.put(&quot;notVoted&quot;, pending);</span>
+<span class="fc" id="L722">            row.put(&quot;notSubmitted&quot;, pending);</span>
+<span class="fc" id="L723">            row.put(&quot;voted&quot;, stats.done);</span>
+<span class="fc" id="L724">            result.add(row);</span>
+<span class="fc" id="L725">        }</span>
+<span class="fc" id="L726">        result.sort(Comparator</span>
+<span class="pc" id="L727">                .comparing((Map&lt;String, Object&gt; row) -&gt; departmentRank(text(row.get(&quot;subjectName&quot;))))</span>
+<span class="pc" id="L728">                .thenComparing(row -&gt; text(row.get(&quot;subjectName&quot;))));</span>
+<span class="fc" id="L729">        return result;</span>
+    }
+
+    private List&lt;Map&lt;String, Object&gt;&gt; voteDetailRows(List&lt;Vote&gt; details)
+    {
+<span class="fc" id="L734">        List&lt;Map&lt;String, Object&gt;&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L735" title="All 2 branches covered.">        for (Vote detail : details)</span>
+        {
+<span class="fc" id="L737">            Map&lt;String, Object&gt; row = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L738">            row.put(&quot;serialCode&quot;, voteSequenceCode(detail));</span>
+<span class="fc" id="L739">            row.put(&quot;recommendCategory&quot;, recommendationCategory(detail));</span>
+<span class="fc" id="L740">            row.put(&quot;candidateName&quot;, detail.getCandidateName());</span>
+<span class="fc" id="L741">            row.put(&quot;importSeq&quot;, detail.getImportSeq());</span>
+<span class="fc" id="L742">            row.put(&quot;company&quot;, detail.getCompany());</span>
+<span class="fc" id="L743">            row.put(&quot;department&quot;, candidateDepartmentLevel(detail));</span>
+<span class="fc" id="L744">            row.put(&quot;position&quot;, detail.getPosition());</span>
+<span class="fc" id="L745">            row.put(&quot;voteResult&quot;, voteResultText(detail.getResult()));</span>
+<span class="fc" id="L746">            row.put(&quot;voterDepartment&quot;, detail.getVoterDepartment());</span>
+<span class="fc" id="L747">            row.put(&quot;voterName&quot;, detail.getVoterName());</span>
+<span class="fc" id="L748">            result.add(row);</span>
+<span class="fc" id="L749">        }</span>
+<span class="fc" id="L750">        return result;</span>
+    }
+
+    private List&lt;Map&lt;String, Object&gt;&gt; voteDisplayRows(List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L755">        List&lt;Map&lt;String, Object&gt;&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L756" title="All 2 branches covered.">        for (ResultAgg row : rows)</span>
+        {
+<span class="fc" id="L758">            Map&lt;String, Object&gt; displayRow = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L759">            displayRow.put(&quot;activityCandidateId&quot;, row.getActivityCandidateId());</span>
+<span class="fc" id="L760">            displayRow.put(&quot;candidateName&quot;, row.getCandidateName());</span>
+<span class="fc" id="L761">            displayRow.put(&quot;importSeq&quot;, row.getImportSeq());</span>
+<span class="fc" id="L762">            displayRow.put(&quot;department&quot;, row.getDepartment());</span>
+<span class="fc" id="L763">            displayRow.put(&quot;appliedLevel&quot;, row.getAppliedLevel());</span>
+<span class="fc" id="L764">            displayRow.put(&quot;position&quot;, row.getPosition());</span>
+<span class="fc" id="L765">            displayRow.put(&quot;fixedType&quot;, row.getFixedType());</span>
+<span class="fc" id="L766">            displayRow.put(&quot;passCount&quot;, row.getVotePassCount());</span>
+<span class="fc" id="L767">            displayRow.put(&quot;rejectCount&quot;, row.getVoteRejectCount());</span>
+<span class="fc" id="L768">            displayRow.put(&quot;rankNo&quot;, row.getRankNo());</span>
+<span class="fc" id="L769">            displayRow.put(&quot;displayBucket&quot;, voteDisplayBucket(row));</span>
+<span class="fc" id="L770">            displayRow.put(&quot;voteStatus&quot;, voteDisplayStatus(row));</span>
+<span class="fc" id="L771">            result.add(displayRow);</span>
+<span class="fc" id="L772">        }</span>
+<span class="fc" id="L773">        result.sort(Comparator</span>
+<span class="fc" id="L774">                .comparingInt((Map&lt;String, Object&gt; row) -&gt; departmentRank(text(row.get(&quot;department&quot;))))</span>
+<span class="fc" id="L775">                .thenComparing(row -&gt; text(row.get(&quot;department&quot;)))</span>
+<span class="fc" id="L776">                .thenComparingInt(row -&gt; levelRank(text(row.get(&quot;appliedLevel&quot;))))</span>
+<span class="fc" id="L777">                .thenComparing(row -&gt; text(row.get(&quot;appliedLevel&quot;)))</span>
+<span class="fc" id="L778">                .thenComparingInt(row -&gt; intValue(row.get(&quot;displayBucket&quot;)))</span>
+<span class="pc" id="L779">                .thenComparingInt(row -&gt; intValue(row.get(&quot;rankNo&quot;)))</span>
+<span class="pc" id="L780">                .thenComparingInt(row -&gt; intValue(row.get(&quot;importSeq&quot;)))</span>
+<span class="pc" id="L781">                .thenComparing(row -&gt; text(row.get(&quot;candidateName&quot;))));</span>
+<span class="fc" id="L782">        return result;</span>
+    }
+
+    private int voteDisplayBucket(ResultAgg row)
+    {
+<span class="fc bfc" id="L787" title="All 2 branches covered.">        if (&quot;PASS&quot;.equals(row.getFixedType()))</span>
+        {
+<span class="fc" id="L789">            return 1;</span>
+        }
+<span class="fc bfc" id="L791" title="All 4 branches covered.">        if (&quot;VOTE&quot;.equals(row.getFixedType()) &amp;&amp; &quot;PASS&quot;.equals(row.getFinalResult()))</span>
+        {
+<span class="fc" id="L793">            return 2;</span>
+        }
+<span class="pc bpc" id="L795" title="1 of 4 branches missed.">        if (&quot;VOTE&quot;.equals(row.getFixedType()) &amp;&amp; &quot;REJECT&quot;.equals(row.getFinalResult()))</span>
+        {
+<span class="fc" id="L797">            return 3;</span>
+        }
+<span class="pc bpc" id="L799" title="1 of 2 branches missed.">        if (&quot;REJECT&quot;.equals(row.getFixedType()))</span>
+        {
+<span class="fc" id="L801">            return 4;</span>
+        }
+<span class="nc" id="L803">        return 99;</span>
+    }
+
+    private String voteDisplayStatus(ResultAgg row)
+    {
+<span class="fc bfc" id="L808" title="All 2 branches covered.">        if (&quot;PASS&quot;.equals(row.getFixedType()))</span>
+        {
+<span class="fc" id="L810">            return &quot;固定通过&quot;;</span>
+        }
+<span class="fc bfc" id="L812" title="All 2 branches covered.">        if (&quot;REJECT&quot;.equals(row.getFixedType()))</span>
+        {
+<span class="fc" id="L814">            return &quot;固定淘汰&quot;;</span>
+        }
+<span class="fc" id="L816">        return &quot;推荐 &quot; + intValue(row.getVotePassCount()) + &quot; 票 / 淘汰 &quot; + intValue(row.getVoteRejectCount()) + &quot; 票&quot;;</span>
+    }
+
+    private List&lt;String&gt; sortedVoteDepartments(List&lt;Map&lt;String, Object&gt;&gt; summaryRows, Map&lt;String, List&lt;Vote&gt;&gt; detailByDepartment)
+    {
+<span class="fc" id="L821">        LinkedHashSet&lt;String&gt; departments = new LinkedHashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L822" title="All 2 branches covered.">        for (Map&lt;String, Object&gt; summary : summaryRows)</span>
+        {
+<span class="fc" id="L824">            departments.add(text(summary.get(&quot;subjectName&quot;)));</span>
+<span class="fc" id="L825">        }</span>
+<span class="fc" id="L826">        departments.addAll(detailByDepartment.keySet());</span>
+<span class="fc" id="L827">        List&lt;String&gt; result = new ArrayList&lt;&gt;(departments);</span>
+<span class="fc" id="L828">        result.sort(Comparator</span>
+<span class="fc" id="L829">                .comparingInt(this::departmentRank)</span>
+<span class="pc" id="L830">                .thenComparing(department -&gt; department));</span>
+<span class="fc" id="L831">        return result;</span>
+    }
+
+    private String voteSequenceCode(Vote detail)
+    {
+<span class="fc" id="L836">        return StringUtils.defaultIfEmpty(detail.getVoterEmployeeId(),</span>
+<span class="pc bpc" id="L837" title="1 of 2 branches missed.">                detail.getVoterImportSeq() == null ? StringUtils.defaultString(detail.getVoterName())</span>
+<span class="nc" id="L838">                        : String.valueOf(detail.getVoterImportSeq()));</span>
+    }
+
+    private String recommendationCategory(Vote detail)
+    {
+<span class="fc" id="L843">        return candidateDepartmentLevel(detail) + &quot;(&quot; + StringUtils.defaultString(detail.getVoterDepartment()) + &quot;)&quot;;</span>
+    }
+
+    private String candidateDepartmentLevel(Vote detail)
+    {
+<span class="fc" id="L848">        return StringUtils.defaultString(detail.getDepartment()) + &quot;（&quot; + StringUtils.defaultString(detail.getAppliedLevel()) + &quot;）&quot;;</span>
+    }
+
+    private String voteResultText(String result)
+    {
+<span class="fc bfc" id="L853" title="All 2 branches covered.">        if (&quot;PASS&quot;.equals(result))</span>
+        {
+<span class="fc" id="L855">            return &quot;推荐&quot;;</span>
+        }
+<span class="pc bpc" id="L857" title="1 of 2 branches missed.">        if (&quot;REJECT&quot;.equals(result))</span>
+        {
+<span class="fc" id="L859">            return &quot;不推荐&quot;;</span>
+        }
+<span class="nc" id="L861">        return StringUtils.defaultString(result);</span>
+    }
+
+    private void writeFigure3(XSSFWorkbook workbook, CellStyle headerStyle, List&lt;ResultAgg&gt; rows, RuleConfig ruleConfig)
+    {
+<span class="nc" id="L866">        Sheet sheet = workbook.createSheet(&quot;图3_统计结果&quot;);</span>
+<span class="nc" id="L867">        writeHeader(sheet, headerStyle, 0, &quot;序号&quot;, &quot;二级部门&quot;, &quot;申报职称&quot;, &quot;候选人数&quot;,</span>
+                &quot;最多通过人数&quot;, &quot;最终通过人数&quot;, &quot;最终不通过人数&quot;);
+<span class="nc" id="L869">        Map&lt;String, GroupStats&gt; grouped = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L870" title="All 2 branches missed.">        for (ResultAgg row : rows)</span>
+        {
+<span class="nc" id="L872">            String key = text(row.getDepartment()) + &quot;|&quot; + text(row.getAppliedLevel());</span>
+<span class="nc" id="L873">            GroupStats stats = grouped.computeIfAbsent(key, unused -&gt; new GroupStats(row.getDepartment(), row.getAppliedLevel()));</span>
+<span class="nc" id="L874">            stats.candidateCount++;</span>
+<span class="nc bnc" id="L875" title="All 2 branches missed.">            if (&quot;PASS&quot;.equals(row.getFinalResult()))</span>
+            {
+<span class="nc" id="L877">                stats.finalPass++;</span>
+            }
+<span class="nc bnc" id="L879" title="All 2 branches missed.">            else if (&quot;REJECT&quot;.equals(row.getFinalResult()))</span>
+            {
+<span class="nc" id="L881">                stats.finalReject++;</span>
+            }
+<span class="nc" id="L883">        }</span>
+
+<span class="nc" id="L885">        int rowNo = 1;</span>
+<span class="nc bnc" id="L886" title="All 2 branches missed.">        BigDecimal passRatio = ruleConfig == null ? null : ruleConfig.getPassRatio();</span>
+<span class="nc bnc" id="L887" title="All 2 branches missed.">        for (GroupStats stats : grouped.values())</span>
+        {
+<span class="nc" id="L889">            Row row = sheet.createRow(rowNo);</span>
+<span class="nc" id="L890">            cell(row, 0, rowNo);</span>
+<span class="nc" id="L891">            cell(row, 1, stats.department);</span>
+<span class="nc" id="L892">            cell(row, 2, stats.appliedLevel);</span>
+<span class="nc" id="L893">            cell(row, 3, stats.candidateCount);</span>
+<span class="nc bnc" id="L894" title="All 2 branches missed.">            cell(row, 4, isAutoPassLevel(stats.appliedLevel) ? stats.candidateCount : ratioCount(stats.candidateCount, passRatio));</span>
+<span class="nc" id="L895">            cell(row, 5, stats.finalPass);</span>
+<span class="nc" id="L896">            cell(row, 6, stats.finalReject);</span>
+<span class="nc" id="L897">            rowNo++;</span>
+<span class="nc" id="L898">        }</span>
+
+<span class="nc" id="L900">        int objectStart = rowNo + 2;</span>
+<span class="nc" id="L901">        writeHeader(sheet, headerStyle, objectStart, &quot;序号&quot;, &quot;二级部门&quot;, &quot;三级部门&quot;, &quot;申报职称&quot;, &quot;排序&quot;, &quot;姓名&quot;,</span>
+                &quot;推荐票&quot;, &quot;不推荐票&quot;, &quot;推荐率&quot;, &quot;不推荐率&quot;, &quot;投票排名&quot;, &quot;最终结果&quot;);
+<span class="nc" id="L903">        int detailRowNo = objectStart + 1;</span>
+<span class="nc" id="L904">        int no = 1;</span>
+<span class="nc bnc" id="L905" title="All 2 branches missed.">        for (ResultAgg result : rows)</span>
+        {
+<span class="nc" id="L907">            Row row = sheet.createRow(detailRowNo);</span>
+<span class="nc" id="L908">            cell(row, 0, no);</span>
+<span class="nc" id="L909">            cell(row, 1, result.getDepartment());</span>
+<span class="nc" id="L910">            cell(row, 2, result.getThirdLevelDepartment());</span>
+<span class="nc" id="L911">            cell(row, 3, result.getAppliedLevel());</span>
+<span class="nc" id="L912">            cell(row, 4, result.getImportSeq());</span>
+<span class="nc" id="L913">            cell(row, 5, result.getCandidateName());</span>
+<span class="nc" id="L914">            cell(row, 6, result.getVotePassCount());</span>
+<span class="nc" id="L915">            cell(row, 7, result.getVoteRejectCount());</span>
+<span class="nc" id="L916">            cell(row, 8, result.getPassRate());</span>
+<span class="nc" id="L917">            cell(row, 9, result.getRejectRate());</span>
+<span class="nc" id="L918">            cell(row, 10, result.getRankNo());</span>
+<span class="nc" id="L919">            cell(row, 11, result.getFinalResult());</span>
+<span class="nc" id="L920">            detailRowNo++;</span>
+<span class="nc" id="L921">            no++;</span>
+<span class="nc" id="L922">        }</span>
+<span class="nc" id="L923">        autosize(sheet, 12);</span>
+<span class="nc" id="L924">    }</span>
+
+    private void writeFigure4(XSSFWorkbook workbook, CellStyle headerStyle, List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L928">        Sheet sheet = workbook.createSheet(&quot;图4_通过表决&quot;);</span>
+<span class="fc" id="L929">        writeHeader(sheet, headerStyle, 0, &quot;序号&quot;, &quot;二级部门&quot;, &quot;三级部门&quot;, &quot;申报职称&quot;, &quot;排序&quot;, &quot;姓名&quot;,</span>
+                &quot;单位&quot;, &quot;岗位&quot;, &quot;推荐票&quot;, &quot;不推荐票&quot;, &quot;投票排名&quot;);
+<span class="fc" id="L931">        int rowNo = 1;</span>
+<span class="fc bfc" id="L932" title="All 2 branches covered.">        for (ResultAgg result : rows)</span>
+        {
+<span class="pc bpc" id="L934" title="1 of 2 branches missed.">            if (!&quot;PASS&quot;.equals(result.getFinalResult()))</span>
+            {
+<span class="nc" id="L936">                continue;</span>
+            }
+<span class="fc" id="L938">            Row row = sheet.createRow(rowNo);</span>
+<span class="fc" id="L939">            cell(row, 0, rowNo);</span>
+<span class="fc" id="L940">            cell(row, 1, result.getDepartment());</span>
+<span class="fc" id="L941">            cell(row, 2, result.getThirdLevelDepartment());</span>
+<span class="fc" id="L942">            cell(row, 3, result.getAppliedLevel());</span>
+<span class="fc" id="L943">            cell(row, 4, result.getImportSeq());</span>
+<span class="fc" id="L944">            cell(row, 5, result.getCandidateName());</span>
+<span class="fc" id="L945">            cell(row, 6, result.getCompany());</span>
+<span class="fc" id="L946">            cell(row, 7, result.getPosition());</span>
+<span class="fc" id="L947">            cell(row, 8, result.getVotePassCount());</span>
+<span class="fc" id="L948">            cell(row, 9, result.getVoteRejectCount());</span>
+<span class="fc" id="L949">            cell(row, 10, result.getRankNo());</span>
+<span class="fc" id="L950">            rowNo++;</span>
+<span class="fc" id="L951">        }</span>
+<span class="fc" id="L952">        autosize(sheet, 11);</span>
+<span class="fc" id="L953">    }</span>
+
+    private void writeFinalDecision(XSSFWorkbook workbook, CellStyle headerStyle, List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L957">        Sheet sheet = workbook.createSheet(&quot;最终总榜单&quot;);</span>
+<span class="fc" id="L958">        writeHeader(sheet, headerStyle, 0, &quot;序号&quot;, &quot;二级部门&quot;, &quot;评审专业&quot;, &quot;申报职称&quot;, &quot;排序&quot;, &quot;姓名&quot;,</span>
+                &quot;身份证号&quot;, &quot;单位&quot;, &quot;岗位&quot;, &quot;范围类型&quot;, &quot;推荐票&quot;, &quot;不推荐票&quot;, &quot;总票数&quot;,
+                &quot;推荐率&quot;, &quot;不推荐率&quot;, &quot;投票排名&quot;, &quot;最终结果&quot;);
+<span class="fc" id="L961">        int rowNo = 1;</span>
+<span class="fc" id="L962">        int no = 1;</span>
+<span class="fc bfc" id="L963" title="All 2 branches covered.">        for (ResultAgg result : finalDecisionRows(rows))</span>
+        {
+<span class="fc" id="L965">            Row row = sheet.createRow(rowNo);</span>
+<span class="fc" id="L966">            cell(row, 0, no);</span>
+<span class="fc" id="L967">            cell(row, 1, result.getDepartment());</span>
+<span class="fc" id="L968">            cell(row, 2, result.getThirdLevelDepartment());</span>
+<span class="fc" id="L969">            cell(row, 3, result.getAppliedLevel());</span>
+<span class="fc" id="L970">            cell(row, 4, result.getImportSeq());</span>
+<span class="fc" id="L971">            cell(row, 5, result.getCandidateName());</span>
+<span class="fc" id="L972">            cell(row, 6, maskIdCard(result.getIdCard()));</span>
+<span class="fc" id="L973">            cell(row, 7, result.getCompany());</span>
+<span class="fc" id="L974">            cell(row, 8, result.getPosition());</span>
+<span class="fc" id="L975">            cell(row, 9, result.getFixedType());</span>
+<span class="fc" id="L976">            cell(row, 10, result.getVotePassCount());</span>
+<span class="fc" id="L977">            cell(row, 11, result.getVoteRejectCount());</span>
+<span class="fc" id="L978">            cell(row, 12, result.getTotalVotes());</span>
+<span class="fc" id="L979">            cell(row, 13, result.getPassRate());</span>
+<span class="fc" id="L980">            cell(row, 14, result.getRejectRate());</span>
+<span class="fc" id="L981">            cell(row, 15, result.getRankNo());</span>
+<span class="fc" id="L982">            cell(row, 16, result.getFinalResult());</span>
+<span class="fc" id="L983">            rowNo++;</span>
+<span class="fc" id="L984">            no++;</span>
+<span class="fc" id="L985">        }</span>
+<span class="fc" id="L986">        autosize(sheet, 17);</span>
+<span class="fc" id="L987">    }</span>
+
+    private List&lt;ResultAgg&gt; finalDecisionRows(List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L991">        return exportRows(rows);</span>
+    }
+
+    private List&lt;ResultAgg&gt; exportRows(List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L996">        return rows.stream()</span>
+<span class="fc" id="L997">                .sorted(Comparator</span>
+<span class="fc" id="L998">                        .comparingInt((ResultAgg row) -&gt; resultBucket(row))</span>
+<span class="fc" id="L999">                        .thenComparingInt(row -&gt; departmentRank(text(row.getDepartment())))</span>
+<span class="fc" id="L1000">                        .thenComparing(row -&gt; text(row.getDepartment()))</span>
+<span class="fc" id="L1001">                        .thenComparingInt(row -&gt; levelRank(text(row.getAppliedLevel())))</span>
+<span class="pc" id="L1002">                        .thenComparing(row -&gt; text(row.getAppliedLevel()))</span>
+<span class="pc" id="L1003">                        .thenComparing(Comparator.comparingInt((ResultAgg row) -&gt; intValue(row.getVotePassCount())).reversed())</span>
+<span class="pc" id="L1004">                        .thenComparingInt(row -&gt; intValue(row.getVoteRejectCount()))</span>
+<span class="pc" id="L1005">                        .thenComparing(row -&gt; row.getImportSeq(), Comparator.nullsLast(Integer::compareTo))</span>
+<span class="pc" id="L1006">                        .thenComparing(row -&gt; row.getActivityCandidateId(), Comparator.nullsLast(Long::compareTo)))</span>
+<span class="fc" id="L1007">                .collect(Collectors.toList());</span>
+    }
+
+    private int resultBucket(ResultAgg row)
+    {
+<span class="pc bpc" id="L1012" title="1 of 2 branches missed.">        String finalResult = row == null ? null : row.getFinalResult();</span>
+<span class="fc bfc" id="L1013" title="All 2 branches covered.">        if (&quot;PASS&quot;.equals(finalResult)) return 1;</span>
+<span class="pc bpc" id="L1014" title="1 of 2 branches missed.">        if (&quot;REJECT&quot;.equals(finalResult)) return 2;</span>
+<span class="nc" id="L1015">        return 3;</span>
+    }
+
+    private void writeDepartmentZip(File target, List&lt;ResultAgg&gt; rows) throws Exception
+    {
+<span class="fc" id="L1020">        Map&lt;String, List&lt;ResultAgg&gt;&gt; byDepartment = rows.stream()</span>
+<span class="fc" id="L1021">                .collect(Collectors.groupingBy(row -&gt; text(row.getDepartment()), LinkedHashMap::new, Collectors.toList()));</span>
+<span class="fc" id="L1022">        try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(target), StandardCharsets.UTF_8))</span>
+        {
+<span class="fc bfc" id="L1024" title="All 2 branches covered.">            for (Map.Entry&lt;String, List&lt;ResultAgg&gt;&gt; entry : byDepartment.entrySet())</span>
+            {
+<span class="fc" id="L1026">                String department = StringUtils.defaultIfEmpty(entry.getKey(), &quot;未分组&quot;);</span>
+<span class="fc" id="L1027">                byte[] workbookBytes = departmentWorkbook(department, entry.getValue());</span>
+<span class="fc" id="L1028">                ZipEntry zipEntry = new ZipEntry(safeFileName(department) + &quot;.xlsx&quot;);</span>
+<span class="fc" id="L1029">                zip.putNextEntry(zipEntry);</span>
+<span class="fc" id="L1030">                zip.write(workbookBytes);</span>
+<span class="fc" id="L1031">                zip.closeEntry();</span>
+<span class="fc" id="L1032">            }</span>
+        }
+<span class="fc" id="L1034">    }</span>
+
+    private byte[] departmentWorkbook(String department, List&lt;ResultAgg&gt; rows) throws Exception
+    {
+<span class="fc" id="L1038">        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream output = new ByteArrayOutputStream())</span>
+        {
+<span class="fc" id="L1040">            CellStyle headerStyle = headerStyle(workbook);</span>
+<span class="fc" id="L1041">            CellStyle titleStyle = titleStyle(workbook);</span>
+<span class="fc" id="L1042">            Map&lt;String, List&lt;ResultAgg&gt;&gt; byLevel = rows.stream()</span>
+<span class="fc" id="L1043">                    .collect(Collectors.groupingBy(row -&gt; text(row.getAppliedLevel()), LinkedHashMap::new, Collectors.toList()));</span>
+<span class="fc bfc" id="L1044" title="All 2 branches covered.">            for (Map.Entry&lt;String, List&lt;ResultAgg&gt;&gt; entry : byLevel.entrySet())</span>
+            {
+<span class="fc" id="L1046">                String level = StringUtils.defaultIfEmpty(entry.getKey(), &quot;未分级&quot;);</span>
+<span class="fc" id="L1047">                writeDepartmentLevelSheet(workbook, titleStyle, headerStyle, safeSheetName(level), department, level, entry.getValue());</span>
+<span class="fc" id="L1048">            }</span>
+<span class="fc" id="L1049">            workbook.write(output);</span>
+<span class="fc" id="L1050">            return output.toByteArray();</span>
+        }
+    }
+
+    private void writeDepartmentLevelSheet(XSSFWorkbook workbook, CellStyle titleStyle, CellStyle headerStyle,
+            String sheetName, String department, String level, List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L1057">        Sheet sheet = workbook.createSheet(sheetName);</span>
+<span class="fc" id="L1058">        Row title = sheet.createRow(0);</span>
+<span class="fc" id="L1059">        Cell titleCell = title.createCell(0);</span>
+<span class="fc" id="L1060">        titleCell.setCellValue(department + &quot;统分表--&quot; + level);</span>
+<span class="fc" id="L1061">        titleCell.setCellStyle(titleStyle);</span>
+<span class="fc" id="L1062">        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 7));</span>
+<span class="fc" id="L1063">        writeHeader(sheet, headerStyle, 1, &quot;排序&quot;, &quot;单位&quot;, &quot;身份证号&quot;, &quot;姓名&quot;, &quot;申报职称&quot;, &quot;评审专业&quot;, &quot;评价结果&quot;, &quot;评审结果&quot;);</span>
+
+<span class="fc" id="L1065">        int rowNo = 2;</span>
+<span class="fc" id="L1066">        int no = 1;</span>
+<span class="fc bfc" id="L1067" title="All 2 branches covered.">        for (ResultAgg result : rows)</span>
+        {
+<span class="fc" id="L1069">            Row row = sheet.createRow(rowNo);</span>
+<span class="fc" id="L1070">            cell(row, 0, no);</span>
+<span class="fc" id="L1071">            cell(row, 1, result.getCompany());</span>
+<span class="fc" id="L1072">            cell(row, 2, &quot;&quot;);</span>
+<span class="fc" id="L1073">            cell(row, 3, result.getCandidateName());</span>
+<span class="fc" id="L1074">            cell(row, 4, result.getAppliedLevel());</span>
+<span class="fc" id="L1075">            cell(row, 5, result.getThirdLevelDepartment());</span>
+<span class="pc bpc" id="L1076" title="1 of 2 branches missed.">            cell(row, 6, result.getPassRate() == null ? null : result.getPassRate().multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP));</span>
+<span class="fc" id="L1077">            cell(row, 7, result.getFinalResult());</span>
+<span class="fc" id="L1078">            rowNo++;</span>
+<span class="fc" id="L1079">            no++;</span>
+<span class="fc" id="L1080">        }</span>
+<span class="fc" id="L1081">        autosize(sheet, 8);</span>
+<span class="fc" id="L1082">    }</span>
+
+    private CellStyle headerStyle(XSSFWorkbook workbook)
+    {
+<span class="fc" id="L1086">        CellStyle style = workbook.createCellStyle();</span>
+<span class="fc" id="L1087">        Font font = workbook.createFont();</span>
+<span class="fc" id="L1088">        font.setBold(true);</span>
+<span class="fc" id="L1089">        style.setFont(font);</span>
+<span class="fc" id="L1090">        style.setAlignment(HorizontalAlignment.CENTER);</span>
+<span class="fc" id="L1091">        style.setVerticalAlignment(VerticalAlignment.CENTER);</span>
+<span class="fc" id="L1092">        return style;</span>
+    }
+
+    private CellStyle titleStyle(XSSFWorkbook workbook)
+    {
+<span class="fc" id="L1097">        CellStyle style = workbook.createCellStyle();</span>
+<span class="fc" id="L1098">        Font font = workbook.createFont();</span>
+<span class="fc" id="L1099">        font.setBold(true);</span>
+<span class="fc" id="L1100">        font.setFontHeightInPoints((short) 14);</span>
+<span class="fc" id="L1101">        style.setFont(font);</span>
+<span class="fc" id="L1102">        style.setAlignment(HorizontalAlignment.CENTER);</span>
+<span class="fc" id="L1103">        style.setVerticalAlignment(VerticalAlignment.CENTER);</span>
+<span class="fc" id="L1104">        return style;</span>
+    }
+
+    private void writeHeader(Sheet sheet, CellStyle style, int rowNo, String... headers)
+    {
+<span class="fc" id="L1109">        Row row = sheet.createRow(rowNo);</span>
+<span class="fc bfc" id="L1110" title="All 2 branches covered.">        for (int i = 0; i &lt; headers.length; i++)</span>
+        {
+<span class="fc" id="L1112">            Cell cell = row.createCell(i);</span>
+<span class="fc" id="L1113">            cell.setCellValue(headers[i]);</span>
+<span class="fc" id="L1114">            cell.setCellStyle(style);</span>
+        }
+<span class="fc" id="L1116">    }</span>
+
+    private void cell(Row row, int column, Object value)
+    {
+<span class="fc" id="L1120">        Cell cell = row.createCell(column);</span>
+<span class="pc bpc" id="L1121" title="1 of 2 branches missed.">        if (value == null)</span>
+        {
+<span class="nc" id="L1123">            cell.setBlank();</span>
+        }
+<span class="fc bfc" id="L1125" title="All 2 branches covered.">        else if (value instanceof Number)</span>
+        {
+<span class="fc" id="L1127">            cell.setCellValue(((Number) value).doubleValue());</span>
+        }
+        else
+        {
+<span class="fc" id="L1131">            cell.setCellValue(String.valueOf(value));</span>
+        }
+<span class="fc" id="L1133">    }</span>
+
+    private void autosize(Sheet sheet, int columns)
+    {
+<span class="fc bfc" id="L1137" title="All 2 branches covered.">        for (int i = 0; i &lt; columns; i++)</span>
+        {
+<span class="fc" id="L1139">            sheet.autoSizeColumn(i);</span>
+<span class="pc bpc" id="L1140" title="1 of 2 branches missed.">            if (sheet.getColumnWidth(i) &gt; 12000)</span>
+            {
+<span class="nc" id="L1142">                sheet.setColumnWidth(i, 12000);</span>
+            }
+        }
+<span class="fc" id="L1145">    }</span>
+
+    private String normalizeExportType(String exportType)
+    {
+<span class="fc" id="L1149">        String type = StringUtils.defaultIfEmpty(exportType, TYPE_STAT_RESULT).trim().toUpperCase();</span>
+<span class="pc bpc" id="L1150" title="2 of 4 branches missed.">        if (&quot;FIGURE3&quot;.equals(type) || &quot;GROUP_SUMMARY&quot;.equals(type))</span>
+        {
+<span class="nc" id="L1152">            return TYPE_STAT_RESULT;</span>
+        }
+<span class="fc bfc" id="L1154" title="All 2 branches covered.">        if (&quot;FIGURE2&quot;.equals(type))</span>
+        {
+<span class="fc" id="L1156">            return TYPE_VOTE_SUMMARY;</span>
+        }
+<span class="pc bpc" id="L1158" title="2 of 4 branches missed.">        if (&quot;FIGURE4&quot;.equals(type) || &quot;FINAL_PASS&quot;.equals(type))</span>
+        {
+<span class="nc" id="L1160">            return TYPE_PASS_DECISION;</span>
+        }
+<span class="pc bpc" id="L1162" title="1 of 8 branches missed.">        if (&quot;FINAL&quot;.equals(type) || &quot;FINAL_DECISION&quot;.equals(type) || &quot;FIGURE5&quot;.equals(type) || &quot;FINAL_EVALUATION&quot;.equals(type))</span>
+        {
+<span class="fc" id="L1164">            return TYPE_FINAL_DECISION;</span>
+        }
+<span class="pc bpc" id="L1166" title="1 of 6 branches missed.">        if (!TYPE_STAT_RESULT.equals(type) &amp;&amp; !TYPE_VOTE_SUMMARY.equals(type) &amp;&amp; !TYPE_PASS_DECISION.equals(type)</span>
+<span class="nc bnc" id="L1167" title="All 2 branches missed.">                &amp;&amp; !TYPE_FINAL_DECISION.equals(type))</span>
+        {
+<span class="nc" id="L1169">            throw new ServiceException(&quot;Unsupported export type: &quot; + exportType);</span>
+        }
+<span class="fc" id="L1171">        return type;</span>
+    }
+
+    private String exportFileName(Long activityId, String type)
+    {
+<span class="fc bfc" id="L1176" title="All 2 branches covered.">        String extension = TYPE_STAT_RESULT.equals(type) ? &quot;.zip&quot; : &quot;.xlsx&quot;;</span>
+<span class="fc" id="L1177">        return &quot;evaluation_result_&quot; + activityId + &quot;_&quot; + type + &quot;_&quot; + DateUtils.dateTimeNow() + extension;</span>
+    }
+
+    private String downloadUrl(String relativeFileName)
+    {
+<span class="fc" id="L1182">        return &quot;/common/download?fileName=&quot; + URLEncoder.encode(relativeFileName, StandardCharsets.UTF_8) + &quot;&amp;delete=false&quot;;</span>
+    }
+
+    private void markExported(Long activityId, String type, String username)
+    {
+<span class="fc bfc" id="L1187" title="All 2 branches covered.">        if (!TYPE_FINAL_DECISION.equals(type))</span>
+        {
+<span class="fc" id="L1189">            return;</span>
+        }
+<span class="fc" id="L1191">        Activity activity = new Activity();</span>
+<span class="fc" id="L1192">        activity.setId(activityId);</span>
+<span class="fc" id="L1193">        activity.setStatus(&quot;EXPORTED&quot;);</span>
+<span class="fc" id="L1194">        activity.setUpdatedBy(username);</span>
+<span class="fc" id="L1195">        activityMapper.updateActivity(activity);</span>
+<span class="fc" id="L1196">    }</span>
+
+    private void applyConfirmedFinalEvaluation(Long activityId, List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L1200">        FinalEvaluation query = new FinalEvaluation();</span>
+<span class="fc" id="L1201">        query.setActivityId(activityId);</span>
+<span class="fc" id="L1202">        List&lt;FinalEvaluation&gt; finalRows = finalEvaluationMapper.selectFinalEvaluationList(query);</span>
+<span class="pc bpc" id="L1203" title="2 of 6 branches missed.">        if (finalRows.isEmpty() || finalRows.stream().anyMatch(row -&gt; !&quot;CONFIRMED&quot;.equals(row.getConfirmStatus())))</span>
+        {
+<span class="fc" id="L1205">            throw new ServiceException(&quot;Please confirm FinalEvaluation before exporting the final decision.&quot;);</span>
+        }
+<span class="fc" id="L1207">        Map&lt;Long, String&gt; finalResultByCandidateId = finalRows.stream()</span>
+<span class="fc" id="L1208">                .collect(Collectors.toMap(FinalEvaluation::getActivityCandidateId, FinalEvaluation::getFinalResult));</span>
+<span class="fc bfc" id="L1209" title="All 2 branches covered.">        for (ResultAgg row : rows)</span>
+        {
+<span class="fc" id="L1211">            String finalResult = finalResultByCandidateId.get(row.getActivityCandidateId());</span>
+<span class="pc bpc" id="L1212" title="1 of 2 branches missed.">            if (finalResult == null)</span>
+            {
+<span class="nc" id="L1214">                throw new ServiceException(&quot;FinalEvaluation is incomplete for the current activity.&quot;);</span>
+            }
+<span class="fc" id="L1216">            row.setFinalResult(finalResult);</span>
+<span class="fc" id="L1217">        }</span>
+<span class="fc" id="L1218">    }</span>
+
+    private Comparator&lt;ResultRow&gt; voteRankComparator()
+    {
+<span class="fc" id="L1222">        return Comparator.comparingInt((ResultRow row) -&gt; row.pass).reversed()</span>
+<span class="fc" id="L1223">                .thenComparingInt(row -&gt; row.reject)</span>
+<span class="fc" id="L1224">                .thenComparing(row -&gt; row.candidate.getImportSeq(), Comparator.nullsLast(Integer::compareTo))</span>
+<span class="pc" id="L1225">                .thenComparing(row -&gt; row.candidate.getId(), Comparator.nullsLast(Long::compareTo));</span>
+    }
+
+    private String groupKey(ResultRow row)
+    {
+<span class="fc" id="L1230">        return text(row.candidate.getDepartment()) + &quot;|&quot; + text(row.candidate.getAppliedLevel());</span>
+    }
+
+    private boolean isAutoPassLevel(String level)
+    {
+<span class="fc" id="L1235">        return EvaluationTitleUtils.isAutoPassLevel(level);</span>
+    }
+
+    private int ratioCount(int total, BigDecimal ratio)
+    {
+<span class="pc bpc" id="L1240" title="2 of 4 branches missed.">        if (total &lt;= 0 || ratio == null)</span>
+        {
+<span class="nc" id="L1242">            return 0;</span>
+        }
+<span class="fc" id="L1244">        return ratio.multiply(BigDecimal.valueOf(total)).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP).intValue();</span>
+    }
+
+    private BigDecimal rate(int count, int total)
+    {
+<span class="fc bfc" id="L1249" title="All 2 branches covered.">        if (total &lt;= 0)</span>
+        {
+<span class="fc" id="L1251">            return BigDecimal.ZERO;</span>
+        }
+<span class="fc" id="L1253">        return BigDecimal.valueOf(count).divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP);</span>
+    }
+
+    private String text(String value)
+    {
+<span class="fc" id="L1258">        return StringUtils.defaultString(value);</span>
+    }
+
+    private String text(Object value)
+    {
+<span class="pc bpc" id="L1263" title="1 of 2 branches missed.">        return value == null ? &quot;&quot; : String.valueOf(value);</span>
+    }
+
+    private String limit(String message)
+    {
+<span class="fc" id="L1268">        String value = StringUtils.defaultString(message);</span>
+<span class="pc bpc" id="L1269" title="1 of 2 branches missed.">        return value.length() &gt; 1000 ? value.substring(0, 1000) : value;</span>
+    }
+
+    private String formatDateTime(Date date)
+    {
+<span class="fc bfc" id="L1274" title="All 2 branches covered.">        if (date == null)</span>
+        {
+<span class="fc" id="L1276">            return null;</span>
+        }
+<span class="fc" id="L1278">        return date.toInstant().atZone(ZONE_SHANGHAI).format(DATE_TIME_FORMATTER);</span>
+    }
+
+    private String maskIdCard(String idCard)
+    {
+<span class="fc" id="L1283">        String value = StringUtils.defaultString(idCard).trim();</span>
+<span class="fc bfc" id="L1284" title="All 2 branches covered.">        if (value.length() &lt;= 8)</span>
+        {
+<span class="fc" id="L1286">            return value;</span>
+        }
+<span class="fc" id="L1288">        return value.substring(0, 4) + &quot;**********&quot; + value.substring(value.length() - 4);</span>
+    }
+
+    private String safeFileName(String value)
+    {
+<span class="fc" id="L1293">        String name = StringUtils.defaultIfEmpty(value, &quot;未命名&quot;);</span>
+<span class="fc" id="L1294">        return name.replaceAll(&quot;[\\\\/:*?\&quot;&lt;&gt;|]&quot;, &quot;_&quot;);</span>
+    }
+
+    private String safeSheetName(String value)
+    {
+<span class="fc" id="L1299">        String name = StringUtils.defaultIfEmpty(value, &quot;Sheet&quot;);</span>
+<span class="fc" id="L1300">        name = name.replaceAll(&quot;[\\\\/?*\\[\\]:]&quot;, &quot;_&quot;);</span>
+<span class="pc bpc" id="L1301" title="1 of 2 branches missed.">        return name.length() &gt; 31 ? name.substring(0, 31) : name;</span>
+    }
+
+    private Map&lt;String, VoterGroupStats&gt; loadVoterGroupStats(Long activityId, List&lt;ResultAgg&gt; rows)
+    {
+<span class="fc" id="L1306">        Map&lt;String, VoterGroupStats&gt; stats = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L1307" title="All 2 branches covered.">        for (ResultAgg row : rows)</span>
+        {
+<span class="fc" id="L1309">            String key = text(row.getDepartment());</span>
+<span class="fc" id="L1310">            stats.computeIfAbsent(key, unused -&gt; new VoterGroupStats(key));</span>
+<span class="fc" id="L1311">        }</span>
+<span class="fc" id="L1312">        ActivityVoter query = new ActivityVoter();</span>
+<span class="fc" id="L1313">        query.setActivityId(activityId);</span>
+<span class="fc" id="L1314">        List&lt;ActivityVoter&gt; voters = activityVoterMapper.selectActivityVoterList(query);</span>
+<span class="fc bfc" id="L1315" title="All 2 branches covered.">        for (ActivityVoter voter : voters)</span>
+        {
+<span class="fc" id="L1317">            String key = text(voter.getDepartment());</span>
+<span class="pc" id="L1318">            VoterGroupStats row = stats.computeIfAbsent(key, unused -&gt; new VoterGroupStats(key));</span>
+<span class="fc" id="L1319">            row.total++;</span>
+<span class="fc bfc" id="L1320" title="All 2 branches covered.">            if (&quot;DONE&quot;.equals(voter.getStatus()))</span>
+            {
+<span class="fc" id="L1322">                row.done++;</span>
+            }
+<span class="fc" id="L1324">        }</span>
+<span class="fc" id="L1325">        return stats;</span>
+    }
+
+    private static class GroupSummary
+    {
+        private final String department;
+        private final String appliedLevel;
+        private int candidateCount;
+        private int passCount;
+        private int rejectCount;
+<span class="fc" id="L1335">        private final Set&lt;String&gt; thirdLevelDepartments = new LinkedHashSet&lt;&gt;();</span>
+        private Date calculatedAt;
+
+        private GroupSummary(String department, String appliedLevel)
+<span class="fc" id="L1339">        {</span>
+<span class="fc" id="L1340">            this.department = department;</span>
+<span class="fc" id="L1341">            this.appliedLevel = appliedLevel;</span>
+<span class="fc" id="L1342">        }</span>
+    }
+
+    private static class VoteCounts
+    {
+        private int pass;
+        private int reject;
+    }
+
+    private static class ResultRow
+    {
+        private ActivityCandidate candidate;
+        private int pass;
+        private int reject;
+        private Integer rankNo;
+        private String finalResult;
+    }
+
+    private static class GroupStats
+    {
+        private final String department;
+        private final String appliedLevel;
+        private int candidateCount;
+        private int finalPass;
+        private int finalReject;
+
+        private GroupStats(String department, String appliedLevel)
+<span class="nc" id="L1369">        {</span>
+<span class="nc" id="L1370">            this.department = department;</span>
+<span class="nc" id="L1371">            this.appliedLevel = appliedLevel;</span>
+<span class="nc" id="L1372">        }</span>
+    }
+
+    private static class VoterGroupStats
+    {
+        private final String department;
+        private int total;
+        private int done;
+
+        private VoterGroupStats(String department)
+<span class="fc" id="L1382">        {</span>
+<span class="fc" id="L1383">            this.department = department;</span>
+<span class="fc" id="L1384">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

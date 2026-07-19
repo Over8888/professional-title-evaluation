@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResultAgg.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.domain</a> &gt; <span class="el_source">ResultAgg.java</span></div><h1>ResultAgg.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.domain;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.ruoyi.common.core.domain.BaseEntity;
+
+<span class="fc" id="L8">public class ResultAgg extends BaseEntity</span>
+{
+    private static final long serialVersionUID = 1L;
+
+    private Long id;
+    private Long activityId;
+    private Long activityCandidateId;
+    private String statScope;
+    private String statKey;
+    private Integer votePassCount;
+    private Integer voteRejectCount;
+    private Integer totalVotes;
+    private BigDecimal passRate;
+    private BigDecimal rejectRate;
+    private Integer rankNo;
+    private String finalResult;
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date updateAt;
+    private String calculatedBy;
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date calculatedAt;
+
+    private Integer importSeq;
+    private String candidateName;
+    private String idCard;
+    private String company;
+    private String firstLevelDepartment;
+    private String department;
+    private String thirdLevelDepartment;
+    private String position;
+    private String currentLevel;
+    private String appliedLevel;
+    private String fixedType;
+
+<span class="fc" id="L42">    public Long getId() { return id; }</span>
+<span class="fc" id="L43">    public void setId(Long id) { this.id = id; }</span>
+<span class="fc" id="L44">    public Long getActivityId() { return activityId; }</span>
+<span class="fc" id="L45">    public void setActivityId(Long activityId) { this.activityId = activityId; }</span>
+<span class="fc" id="L46">    public Long getActivityCandidateId() { return activityCandidateId; }</span>
+<span class="fc" id="L47">    public void setActivityCandidateId(Long activityCandidateId) { this.activityCandidateId = activityCandidateId; }</span>
+<span class="fc" id="L48">    public String getStatScope() { return statScope; }</span>
+<span class="fc" id="L49">    public void setStatScope(String statScope) { this.statScope = statScope; }</span>
+<span class="nc" id="L50">    public String getStatKey() { return statKey; }</span>
+<span class="fc" id="L51">    public void setStatKey(String statKey) { this.statKey = statKey; }</span>
+<span class="fc" id="L52">    public Integer getVotePassCount() { return votePassCount; }</span>
+<span class="fc" id="L53">    public void setVotePassCount(Integer votePassCount) { this.votePassCount = votePassCount; }</span>
+<span class="fc" id="L54">    public Integer getVoteRejectCount() { return voteRejectCount; }</span>
+<span class="fc" id="L55">    public void setVoteRejectCount(Integer voteRejectCount) { this.voteRejectCount = voteRejectCount; }</span>
+<span class="fc" id="L56">    public Integer getTotalVotes() { return totalVotes; }</span>
+<span class="fc" id="L57">    public void setTotalVotes(Integer totalVotes) { this.totalVotes = totalVotes; }</span>
+<span class="fc" id="L58">    public BigDecimal getPassRate() { return passRate; }</span>
+<span class="fc" id="L59">    public void setPassRate(BigDecimal passRate) { this.passRate = passRate; }</span>
+<span class="fc" id="L60">    public BigDecimal getRejectRate() { return rejectRate; }</span>
+<span class="fc" id="L61">    public void setRejectRate(BigDecimal rejectRate) { this.rejectRate = rejectRate; }</span>
+<span class="fc" id="L62">    public Integer getRankNo() { return rankNo; }</span>
+<span class="fc" id="L63">    public void setRankNo(Integer rankNo) { this.rankNo = rankNo; }</span>
+<span class="fc" id="L64">    public String getFinalResult() { return finalResult; }</span>
+<span class="fc" id="L65">    public void setFinalResult(String finalResult) { this.finalResult = finalResult; }</span>
+<span class="nc" id="L66">    public Date getUpdateAt() { return updateAt; }</span>
+<span class="fc" id="L67">    public void setUpdateAt(Date updateAt) { this.updateAt = updateAt; }</span>
+<span class="nc" id="L68">    public String getCalculatedBy() { return calculatedBy; }</span>
+<span class="fc" id="L69">    public void setCalculatedBy(String calculatedBy) { this.calculatedBy = calculatedBy; }</span>
+<span class="fc" id="L70">    public Date getCalculatedAt() { return calculatedAt; }</span>
+<span class="fc" id="L71">    public void setCalculatedAt(Date calculatedAt) { this.calculatedAt = calculatedAt; }</span>
+
+<span class="fc" id="L73">    public Integer getImportSeq() { return importSeq; }</span>
+<span class="fc" id="L74">    public void setImportSeq(Integer importSeq) { this.importSeq = importSeq; }</span>
+<span class="fc" id="L75">    public String getCandidateName() { return candidateName; }</span>
+<span class="fc" id="L76">    public void setCandidateName(String candidateName) { this.candidateName = candidateName; }</span>
+<span class="nc" id="L77">    public String getName() { return candidateName; }</span>
+<span class="nc" id="L78">    public void setName(String name) { this.candidateName = name; }</span>
+<span class="fc" id="L79">    public String getIdCard() { return idCard; }</span>
+<span class="fc" id="L80">    public void setIdCard(String idCard) { this.idCard = idCard; }</span>
+<span class="fc" id="L81">    public String getCompany() { return company; }</span>
+<span class="fc" id="L82">    public void setCompany(String company) { this.company = company; }</span>
+<span class="nc" id="L83">    public String getFirstLevelDepartment() { return firstLevelDepartment; }</span>
+<span class="nc" id="L84">    public void setFirstLevelDepartment(String firstLevelDepartment) { this.firstLevelDepartment = firstLevelDepartment; }</span>
+<span class="fc" id="L85">    public String getDepartment() { return department; }</span>
+<span class="fc" id="L86">    public void setDepartment(String department) { this.department = department; }</span>
+<span class="fc" id="L87">    public String getThirdLevelDepartment() { return thirdLevelDepartment; }</span>
+<span class="fc" id="L88">    public void setThirdLevelDepartment(String thirdLevelDepartment) { this.thirdLevelDepartment = thirdLevelDepartment; }</span>
+<span class="fc" id="L89">    public String getPosition() { return position; }</span>
+<span class="fc" id="L90">    public void setPosition(String position) { this.position = position; }</span>
+<span class="nc" id="L91">    public String getCurrentLevel() { return currentLevel; }</span>
+<span class="nc" id="L92">    public void setCurrentLevel(String currentLevel) { this.currentLevel = currentLevel; }</span>
+<span class="fc" id="L93">    public String getAppliedLevel() { return appliedLevel; }</span>
+<span class="fc" id="L94">    public void setAppliedLevel(String appliedLevel) { this.appliedLevel = appliedLevel; }</span>
+<span class="fc" id="L95">    public String getFixedType() { return fixedType; }</span>
+<span class="fc" id="L96">    public void setFixedType(String fixedType) { this.fixedType = fixedType; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.evaluation.mapper.VoterMapper">
+    <resultMap type="Voter" id="VoterResult">
+        <id property="id" column="id" />
+        <result property="importSeq" column="import_seq" />
+        <result property="name" column="name" />
+        <result property="employeeId" column="employee_id" />
+        <result property="department" column="department" />
+        <result property="remark" column="remark" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="selectVoterVo">select id, import_seq, name, employee_id, department, create_by, create_time, update_by, update_time, remark from Voter</sql>
+
+    <select id="selectVoterList" parameterType="Voter" resultMap="VoterResult">
+        <include refid="selectVoterVo"/>
+        <where>
+            <if test="name != null and name != ''">and name like concat('%', #{name}, '%')</if>
+            <if test="employeeId != null and employeeId != ''">and employee_id = #{employeeId}</if>
+            <if test="department != null and department != ''">and department = #{department}</if>
+        </where>
+        order by import_seq asc, id asc
+    </select>
+
+    <select id="selectVoterById" parameterType="Long" resultMap="VoterResult">
+        <include refid="selectVoterVo"/> where id = #{id}
+    </select>
+
+    <select id="selectVoterByEmployeeId" parameterType="String" resultMap="VoterResult">
+        <include refid="selectVoterVo"/> where employee_id = #{employeeId} limit 1
+    </select>
+
+    <select id="selectVoterByUniqueKey" parameterType="Voter" resultMap="VoterResult">
+        <include refid="selectVoterVo"/>
+        <where>
+            <choose>
+                <when test="employeeId != null and employeeId != ''">and employee_id = #{employeeId}</when>
+                <otherwise>
+                    and name = #{name}
+                    <choose>
+                        <when test="department != null and department != ''">and department = #{department}</when>
+                        <otherwise>and (department is null or department = '')</otherwise>
+                    </choose>
+                </otherwise>
+            </choose>
+        </where>
+        limit 1
+    </select>
+
+    <select id="selectVoterOptionValues" resultType="string">
+        select distinct
+        <choose>
+            <when test="column == 'employeeId'">employee_id</when>
+            <when test="column == 'department'">department</when>
+            <otherwise>department</otherwise>
+        </choose>
+        from Voter
+        where
+        <choose>
+            <when test="column == 'employeeId'">employee_id</when>
+            <when test="column == 'department'">department</when>
+            <otherwise>department</otherwise>
+        </choose>
+        is not null
+        and
+        <choose>
+            <when test="column == 'employeeId'">employee_id</when>
+            <when test="column == 'department'">department</when>
+            <otherwise>department</otherwise>
+        </choose>
+        &lt;&gt; ''
+        order by 1 asc
+    </select>
+
+    <select id="selectMaxImportSeq" resultType="int">
+        select coalesce(max(import_seq), 0) from Voter
+    </select>
+
+    <insert id="insertVoter" parameterType="Voter" useGeneratedKeys="true" keyProperty="id">
+        insert into Voter(import_seq, name, employee_id, department, create_by, create_time, remark)
+        values(#{importSeq}, #{name}, #{employeeId}, #{department}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateVoter" parameterType="Voter">
+        update Voter
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="importSeq != null">import_seq = #{importSeq},</if>
+            <if test="employeeId != null">employee_id = #{employeeId},</if>
+            <if test="department != null">department = #{department},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteVoterById" parameterType="Long">delete from Voter where id = #{id}</delete>
+    <delete id="deleteVoterByIds" parameterType="Long">delete from Voter where id in <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach></delete>
+</mapper>

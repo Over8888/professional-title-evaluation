@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ActivityVoter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.domain</a> &gt; <span class="el_source">ActivityVoter.java</span></div><h1>ActivityVoter.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.domain;
+
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.ruoyi.common.core.domain.BaseEntity;
+
+<span class="fc" id="L7">public class ActivityVoter extends BaseEntity</span>
+{
+    private static final long serialVersionUID = 1L;
+
+    private Long id;
+    private Long activityId;
+    private Long voterId;
+    private Integer importSeq;
+    private String sourceType;
+    private Long sourceActivityId;
+    private Long sourceActivityVoterId;
+    private String name;
+    private String employeeId;
+    private String department;
+    private String status;
+    private String voteToken;
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date submittedAt;
+
+<span class="fc" id="L26">    public Long getId() { return id; }</span>
+<span class="fc" id="L27">    public void setId(Long id) { this.id = id; }</span>
+<span class="fc" id="L28">    public Long getActivityId() { return activityId; }</span>
+<span class="fc" id="L29">    public void setActivityId(Long activityId) { this.activityId = activityId; }</span>
+<span class="fc" id="L30">    public Long getVoterId() { return voterId; }</span>
+<span class="fc" id="L31">    public void setVoterId(Long voterId) { this.voterId = voterId; }</span>
+<span class="nc" id="L32">    public Integer getImportSeq() { return importSeq; }</span>
+<span class="fc" id="L33">    public void setImportSeq(Integer importSeq) { this.importSeq = importSeq; }</span>
+<span class="nc" id="L34">    public String getSourceType() { return sourceType; }</span>
+<span class="fc" id="L35">    public void setSourceType(String sourceType) { this.sourceType = sourceType; }</span>
+<span class="nc" id="L36">    public Long getSourceActivityId() { return sourceActivityId; }</span>
+<span class="fc" id="L37">    public void setSourceActivityId(Long sourceActivityId) { this.sourceActivityId = sourceActivityId; }</span>
+<span class="nc" id="L38">    public Long getSourceActivityVoterId() { return sourceActivityVoterId; }</span>
+<span class="fc" id="L39">    public void setSourceActivityVoterId(Long sourceActivityVoterId) { this.sourceActivityVoterId = sourceActivityVoterId; }</span>
+<span class="fc" id="L40">    public String getName() { return name; }</span>
+<span class="fc" id="L41">    public void setName(String name) { this.name = name; }</span>
+<span class="fc" id="L42">    public String getEmployeeId() { return employeeId; }</span>
+<span class="fc" id="L43">    public void setEmployeeId(String employeeId) { this.employeeId = employeeId; }</span>
+<span class="fc" id="L44">    public String getDepartment() { return department; }</span>
+<span class="fc" id="L45">    public void setDepartment(String department) { this.department = department; }</span>
+<span class="fc" id="L46">    public String getStatus() { return status; }</span>
+<span class="fc" id="L47">    public void setStatus(String status) { this.status = status; }</span>
+<span class="fc" id="L48">    public String getVoteToken() { return voteToken; }</span>
+<span class="fc" id="L49">    public void setVoteToken(String voteToken) { this.voteToken = voteToken; }</span>
+<span class="fc" id="L50">    public Date getSubmittedAt() { return submittedAt; }</span>
+<span class="nc" id="L51">    public void setSubmittedAt(Date submittedAt) { this.submittedAt = submittedAt; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

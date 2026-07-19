@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SysConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.system.domain</a> &gt; <span class="el_source">SysConfig.java</span></div><h1>SysConfig.java</h1><pre class="source lang-java linenums">package com.ruoyi.system.domain;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.annotation.Excel.ColumnType;
+import com.ruoyi.common.core.domain.BaseEntity;
+
+/**
+ * 参数配置表 sys_config
+ * 
+ * @author 职称评审系统项目组
+ */
+<span class="nc" id="L16">public class SysConfig extends BaseEntity</span>
+{
+    private static final long serialVersionUID = 1L;
+
+    /** 参数主键 */
+    @Excel(name = &quot;参数主键&quot;, cellType = ColumnType.NUMERIC)
+    private Long configId;
+
+    /** 参数名称 */
+    @Excel(name = &quot;参数名称&quot;)
+    private String configName;
+
+    /** 参数键名 */
+    @Excel(name = &quot;参数键名&quot;)
+    private String configKey;
+
+    /** 参数键值 */
+    @Excel(name = &quot;参数键值&quot;)
+    private String configValue;
+
+    /** 系统内置（Y是 N否） */
+    @Excel(name = &quot;系统内置&quot;, readConverterExp = &quot;Y=是,N=否&quot;)
+    private String configType;
+
+    public Long getConfigId()
+    {
+<span class="nc" id="L42">        return configId;</span>
+    }
+
+    public void setConfigId(Long configId)
+    {
+<span class="nc" id="L47">        this.configId = configId;</span>
+<span class="nc" id="L48">    }</span>
+
+    @NotBlank(message = &quot;参数名称不能为空&quot;)
+    @Size(min = 0, max = 100, message = &quot;参数名称不能超过100个字符&quot;)
+    public String getConfigName()
+    {
+<span class="nc" id="L54">        return configName;</span>
+    }
+
+    public void setConfigName(String configName)
+    {
+<span class="nc" id="L59">        this.configName = configName;</span>
+<span class="nc" id="L60">    }</span>
+
+    @NotBlank(message = &quot;参数键名长度不能为空&quot;)
+    @Size(min = 0, max = 100, message = &quot;参数键名长度不能超过100个字符&quot;)
+    public String getConfigKey()
+    {
+<span class="nc" id="L66">        return configKey;</span>
+    }
+
+    public void setConfigKey(String configKey)
+    {
+<span class="nc" id="L71">        this.configKey = configKey;</span>
+<span class="nc" id="L72">    }</span>
+
+    @NotBlank(message = &quot;参数键值不能为空&quot;)
+    @Size(min = 0, max = 500, message = &quot;参数键值长度不能超过500个字符&quot;)
+    public String getConfigValue()
+    {
+<span class="nc" id="L78">        return configValue;</span>
+    }
+
+    public void setConfigValue(String configValue)
+    {
+<span class="nc" id="L83">        this.configValue = configValue;</span>
+<span class="nc" id="L84">    }</span>
+
+    public String getConfigType()
+    {
+<span class="nc" id="L88">        return configType;</span>
+    }
+
+    public void setConfigType(String configType)
+    {
+<span class="nc" id="L93">        this.configType = configType;</span>
+<span class="nc" id="L94">    }</span>
+    
+    @Override
+    public String toString() {
+<span class="nc" id="L98">        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)</span>
+<span class="nc" id="L99">            .append(&quot;configId&quot;, getConfigId())</span>
+<span class="nc" id="L100">            .append(&quot;configName&quot;, getConfigName())</span>
+<span class="nc" id="L101">            .append(&quot;configKey&quot;, getConfigKey())</span>
+<span class="nc" id="L102">            .append(&quot;configValue&quot;, getConfigValue())</span>
+<span class="nc" id="L103">            .append(&quot;configType&quot;, getConfigType())</span>
+<span class="nc" id="L104">            .append(&quot;createBy&quot;, getCreateBy())</span>
+<span class="nc" id="L105">            .append(&quot;createTime&quot;, getCreateTime())</span>
+<span class="nc" id="L106">            .append(&quot;updateBy&quot;, getUpdateBy())</span>
+<span class="nc" id="L107">            .append(&quot;updateTime&quot;, getUpdateTime())</span>
+<span class="nc" id="L108">            .append(&quot;remark&quot;, getRemark())</span>
+<span class="nc" id="L109">            .toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

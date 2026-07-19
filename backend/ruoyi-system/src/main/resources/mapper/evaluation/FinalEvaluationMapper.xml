@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.evaluation.mapper.FinalEvaluationMapper">
+    <resultMap type="FinalEvaluation" id="FinalEvaluationResult">
+        <id property="id" column="id" />
+        <result property="activityId" column="activity_id" />
+        <result property="activityCandidateId" column="activity_candidate_id" />
+        <result property="resultAggId" column="result_agg_id" />
+        <result property="finalResult" column="final_result" />
+        <result property="confirmStatus" column="confirm_status" />
+        <result property="confirmedBy" column="confirmed_by" />
+        <result property="confirmedAt" column="confirmed_at" />
+        <result property="signedBy" column="signed_by" />
+        <result property="signatureStatus" column="signature_status" />
+        <result property="confirmRemark" column="confirm_remark" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+        <result property="importSeq" column="import_seq" />
+        <result property="candidateName" column="candidate_name" />
+        <result property="idCard" column="id_card" />
+        <result property="company" column="company" />
+        <result property="department" column="department" />
+        <result property="thirdLevelDepartment" column="third_level_department" />
+        <result property="position" column="position" />
+        <result property="currentLevel" column="current_level" />
+        <result property="appliedLevel" column="applied_level" />
+        <result property="fixedType" column="fixed_type" />
+        <result property="votePassCount" column="vote_PASS_count" />
+        <result property="voteRejectCount" column="vote_REJECT_count" />
+        <result property="totalVotes" column="total_votes" />
+        <result property="rankNo" column="rank_no" />
+        <result property="calculatedResult" column="calculated_result" />
+    </resultMap>
+
+    <sql id="selectFinalEvaluationVo">
+        select fe.id, fe.activity_id, fe.activity_candidate_id, r.id as result_agg_id,
+               fe.final_result, fe.confirm_status, fe.confirmed_by, fe.confirmed_at,
+               fe.signed_by, fe.signature_status, fe.confirm_remark,
+               fe.create_by, fe.create_time, fe.update_by, fe.update_time,
+               ac.import_seq, ac.name as candidate_name, ac.id_card, ac.company,
+               ac.department, ac.third_level_department, ac.position, ac.current_level,
+               ac.applied_level, ac.fixed_type,
+               r.vote_PASS_count, r.vote_REJECT_count, r.total_votes, r.rank_no,
+               r.final_result as calculated_result
+        from FinalEvaluation fe
+        left join ActivityCandidate ac on ac.id = fe.activity_candidate_id
+        left join ResultAgg r on r.activity_id = fe.activity_id
+            and r.activity_candidate_id = fe.activity_candidate_id
+            and r.stat_scope = 'CANDIDATE_GROUP'
+    </sql>
+
+    <select id="selectFinalEvaluationList" parameterType="FinalEvaluation" resultMap="FinalEvaluationResult">
+        <include refid="selectFinalEvaluationVo"/>
+        <where>
+            <if test="activityId != null">and fe.activity_id = #{activityId}</if>
+            <if test="activityCandidateId != null">and fe.activity_candidate_id = #{activityCandidateId}</if>
+            <if test="finalResult != null and finalResult != ''">and fe.final_result = #{finalResult}</if>
+            <if test="confirmStatus != null and confirmStatus != ''">and fe.confirm_status = #{confirmStatus}</if>
+            <if test="department != null and department != ''">and ac.department = #{department}</if>
+            <if test="appliedLevel != null and appliedLevel != ''">and ac.applied_level = #{appliedLevel}</if>
+        </where>
+        order by ac.department asc,
+                 ac.applied_level asc,
+                 case when r.rank_no is null then 1 else 0 end asc,
+                 r.rank_no asc,
+                 ac.import_seq asc,
+                 ac.id asc
+    </select>
+
+    <select id="countFinalEvaluationByActivityId" parameterType="Long" resultType="int">
+        select count(1) from FinalEvaluation where activity_id = #{activityId}
+    </select>
+
+    <select id="selectFinalEvaluationById" parameterType="Long" resultMap="FinalEvaluationResult">
+        <include refid="selectFinalEvaluationVo"/> where fe.id = #{id}
+    </select>
+
+    <select id="selectFinalEvaluationByActivityCandidateId" parameterType="Long" resultMap="FinalEvaluationResult">
+        <include refid="selectFinalEvaluationVo"/>
+        where fe.activity_candidate_id = #{activityCandidateId}
+        limit 1
+    </select>
+
+    <insert id="insertFinalEvaluation" parameterType="FinalEvaluation" useGeneratedKeys="true" keyProperty="id">
+        insert into FinalEvaluation(activity_id, activity_candidate_id, final_result,
+                                    confirm_status, confirmed_by, confirmed_at, signed_by,
+                                    signature_status, confirm_remark, create_by, create_time)
+        values(#{activityId}, #{activityCandidateId}, #{finalResult},
+               #{confirmStatus}, #{confirmedBy}, #{confirmedAt}, #{signedBy},
+               #{signatureStatus}, #{confirmRemark}, #{createBy}, sysdate())
+    </insert>
+
+    <update id="updateFinalEvaluation" parameterType="FinalEvaluation">
+        update FinalEvaluation
+        <set>
+            <if test="finalResult != null">final_result = #{finalResult},</if>
+            <if test="confirmStatus != null">confirm_status = #{confirmStatus},</if>
+            <if test="confirmedBy != null">confirmed_by = #{confirmedBy},</if>
+            <if test="confirmedAt != null">confirmed_at = #{confirmedAt},</if>
+            <if test="signedBy != null">signed_by = #{signedBy},</if>
+            <if test="signatureStatus != null">signature_status = #{signatureStatus},</if>
+            <if test="confirmRemark != null">confirm_remark = #{confirmRemark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteFinalEvaluationByActivityId" parameterType="Long">
+        delete from FinalEvaluation where activity_id = #{activityId}
+    </delete>
+
+    <delete id="deleteFinalEvaluationByIds" parameterType="Long">
+        delete from FinalEvaluation where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+</mapper>

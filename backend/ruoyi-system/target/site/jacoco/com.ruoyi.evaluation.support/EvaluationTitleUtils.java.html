@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>EvaluationTitleUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.support</a> &gt; <span class="el_source">EvaluationTitleUtils.java</span></div><h1>EvaluationTitleUtils.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.support;
+
+import com.ruoyi.common.utils.StringUtils;
+
+public final class EvaluationTitleUtils
+{
+    public static final String LEVEL_SUB_SENIOR_ENGINEER = &quot;副高级工程师&quot;;
+    public static final String LEVEL_INTERMEDIATE_ENGINEER = &quot;中级工程师&quot;;
+    public static final String LEVEL_ASSISTANT_ENGINEER = &quot;助理工程师&quot;;
+    public static final String LEVEL_TECHNICIAN = &quot;技术员&quot;;
+
+    private EvaluationTitleUtils()
+    {
+    }
+
+    public static String normalizeAppliedLevel(String value)
+    {
+<span class="fc" id="L18">        String text = normalize(value);</span>
+<span class="pc bpc" id="L19" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(text))</span>
+        {
+<span class="nc" id="L21">            return null;</span>
+        }
+<span class="pc bpc" id="L23" title="1 of 2 branches missed.">        if (containsAny(text, &quot;正高级工程师&quot;, &quot;正高级&quot;))</span>
+        {
+<span class="nc" id="L25">            return null;</span>
+        }
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (containsAny(text, &quot;副高级工程师&quot;, &quot;高级工程师&quot;, &quot;副高级&quot;, &quot;副高&quot;, &quot;高级&quot;))</span>
+        {
+<span class="fc" id="L29">            return LEVEL_SUB_SENIOR_ENGINEER;</span>
+        }
+<span class="fc bfc" id="L31" title="All 2 branches covered.">        if (containsAny(text, &quot;助理工程师&quot;, &quot;助理级&quot;, &quot;助理&quot;, &quot;初级&quot;))</span>
+        {
+<span class="fc" id="L33">            return LEVEL_ASSISTANT_ENGINEER;</span>
+        }
+<span class="fc bfc" id="L35" title="All 2 branches covered.">        if (containsAny(text, &quot;技术员&quot;, &quot;员级&quot;))</span>
+        {
+<span class="fc" id="L37">            return LEVEL_TECHNICIAN;</span>
+        }
+<span class="fc bfc" id="L39" title="All 2 branches covered.">        if (containsAny(text, &quot;中级工程师&quot;, &quot;中级&quot;, &quot;工程师&quot;))</span>
+        {
+<span class="fc" id="L41">            return LEVEL_INTERMEDIATE_ENGINEER;</span>
+        }
+<span class="fc" id="L43">        return null;</span>
+    }
+
+    public static boolean isVotingLevel(String level)
+    {
+<span class="nc" id="L48">        String normalized = normalizeAppliedLevel(level);</span>
+<span class="nc bnc" id="L49" title="All 4 branches missed.">        return LEVEL_SUB_SENIOR_ENGINEER.equals(normalized) || LEVEL_INTERMEDIATE_ENGINEER.equals(normalized);</span>
+    }
+
+    public static boolean isAutoPassLevel(String level)
+    {
+<span class="fc" id="L54">        String normalized = normalizeAppliedLevel(level);</span>
+<span class="fc bfc" id="L55" title="All 4 branches covered.">        return LEVEL_ASSISTANT_ENGINEER.equals(normalized) || LEVEL_TECHNICIAN.equals(normalized);</span>
+    }
+
+    public static int levelRank(String level)
+    {
+<span class="fc" id="L60">        String normalized = normalizeAppliedLevel(level);</span>
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (LEVEL_SUB_SENIOR_ENGINEER.equals(normalized))</span>
+        {
+<span class="fc" id="L63">            return 2;</span>
+        }
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (LEVEL_INTERMEDIATE_ENGINEER.equals(normalized))</span>
+        {
+<span class="fc" id="L67">            return 3;</span>
+        }
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (LEVEL_ASSISTANT_ENGINEER.equals(normalized))</span>
+        {
+<span class="fc" id="L71">            return 4;</span>
+        }
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">        if (LEVEL_TECHNICIAN.equals(normalized))</span>
+        {
+<span class="fc" id="L75">            return 5;</span>
+        }
+<span class="nc" id="L77">        return 99;</span>
+    }
+
+    private static boolean containsAny(String text, String... needles)
+    {
+<span class="fc bfc" id="L82" title="All 2 branches covered.">        for (String needle : needles)</span>
+        {
+<span class="fc bfc" id="L84" title="All 2 branches covered.">            if (text.contains(needle))</span>
+            {
+<span class="fc" id="L86">                return true;</span>
+            }
+        }
+<span class="fc" id="L89">        return false;</span>
+    }
+
+    private static String normalize(String value)
+    {
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        return value == null ? &quot;&quot; : value.replace('\u3000', ' ').trim();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

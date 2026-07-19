@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SysOperLog.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.system.domain</a> &gt; <span class="el_source">SysOperLog.java</span></div><h1>SysOperLog.java</h1><pre class="source lang-java linenums">package com.ruoyi.system.domain;
+
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.annotation.Excel.ColumnType;
+import com.ruoyi.common.core.domain.BaseEntity;
+
+/**
+ * 操作日志记录表 oper_log
+ * 
+ * @author 职称评审系统项目组
+ */
+<span class="nc" id="L14">public class SysOperLog extends BaseEntity</span>
+{
+    private static final long serialVersionUID = 1L;
+
+    /** 日志主键 */
+    @Excel(name = &quot;操作序号&quot;, cellType = ColumnType.NUMERIC)
+    private Long operId;
+
+    /** 操作模块 */
+    @Excel(name = &quot;操作模块&quot;)
+    private String title;
+
+    /** 业务类型（0其它 1新增 2修改 3删除） */
+    @Excel(name = &quot;业务类型&quot;, readConverterExp = &quot;0=其它,1=新增,2=修改,3=删除,4=授权,5=导出,6=导入,7=强退,8=生成代码,9=清空数据&quot;)
+    private Integer businessType;
+
+    /** 业务类型数组 */
+    private Integer[] businessTypes;
+
+    /** 请求方法 */
+    @Excel(name = &quot;请求方法&quot;)
+    private String method;
+
+    /** 请求方式 */
+    @Excel(name = &quot;请求方式&quot;)
+    private String requestMethod;
+
+    /** 操作类别（0其它 1后台用户 2手机端用户） */
+    @Excel(name = &quot;操作类别&quot;, readConverterExp = &quot;0=其它,1=后台用户,2=手机端用户&quot;)
+    private Integer operatorType;
+
+    /** 操作人员 */
+    @Excel(name = &quot;操作人员&quot;)
+    private String operName;
+
+    /** 部门名称 */
+    @Excel(name = &quot;部门名称&quot;)
+    private String deptName;
+
+    /** 请求url */
+    @Excel(name = &quot;请求地址&quot;)
+    private String operUrl;
+
+    /** 操作地址 */
+    @Excel(name = &quot;操作地址&quot;)
+    private String operIp;
+
+    /** 操作地点 */
+    @Excel(name = &quot;操作地点&quot;)
+    private String operLocation;
+
+    /** 请求参数 */
+    @Excel(name = &quot;请求参数&quot;)
+    private String operParam;
+
+    /** 返回参数 */
+    @Excel(name = &quot;返回参数&quot;)
+    private String jsonResult;
+
+    /** 操作状态（0正常 1异常） */
+    @Excel(name = &quot;状态&quot;, readConverterExp = &quot;0=正常,1=异常&quot;)
+    private Integer status;
+
+    /** 错误消息 */
+    @Excel(name = &quot;错误消息&quot;)
+    private String errorMsg;
+
+    /** 操作时间 */
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    @Excel(name = &quot;操作时间&quot;, width = 30, dateFormat = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date operTime;
+
+    /** 消耗时间 */
+    @Excel(name = &quot;消耗时间&quot;, suffix = &quot;毫秒&quot;)
+    private Long costTime;
+
+    public Long getOperId()
+    {
+<span class="nc" id="L92">        return operId;</span>
+    }
+
+    public void setOperId(Long operId)
+    {
+<span class="nc" id="L97">        this.operId = operId;</span>
+<span class="nc" id="L98">    }</span>
+
+    public String getTitle()
+    {
+<span class="nc" id="L102">        return title;</span>
+    }
+
+    public void setTitle(String title)
+    {
+<span class="nc" id="L107">        this.title = title;</span>
+<span class="nc" id="L108">    }</span>
+
+    public Integer getBusinessType()
+    {
+<span class="nc" id="L112">        return businessType;</span>
+    }
+
+    public void setBusinessType(Integer businessType)
+    {
+<span class="nc" id="L117">        this.businessType = businessType;</span>
+<span class="nc" id="L118">    }</span>
+
+    public Integer[] getBusinessTypes()
+    {
+<span class="nc" id="L122">        return businessTypes;</span>
+    }
+
+    public void setBusinessTypes(Integer[] businessTypes)
+    {
+<span class="nc" id="L127">        this.businessTypes = businessTypes;</span>
+<span class="nc" id="L128">    }</span>
+
+    public String getMethod()
+    {
+<span class="nc" id="L132">        return method;</span>
+    }
+
+    public void setMethod(String method)
+    {
+<span class="nc" id="L137">        this.method = method;</span>
+<span class="nc" id="L138">    }</span>
+
+    public String getRequestMethod()
+    {
+<span class="nc" id="L142">        return requestMethod;</span>
+    }
+
+    public void setRequestMethod(String requestMethod)
+    {
+<span class="nc" id="L147">        this.requestMethod = requestMethod;</span>
+<span class="nc" id="L148">    }</span>
+
+    public Integer getOperatorType()
+    {
+<span class="nc" id="L152">        return operatorType;</span>
+    }
+
+    public void setOperatorType(Integer operatorType)
+    {
+<span class="nc" id="L157">        this.operatorType = operatorType;</span>
+<span class="nc" id="L158">    }</span>
+
+    public String getOperName()
+    {
+<span class="nc" id="L162">        return operName;</span>
+    }
+
+    public void setOperName(String operName)
+    {
+<span class="nc" id="L167">        this.operName = operName;</span>
+<span class="nc" id="L168">    }</span>
+
+    public String getDeptName()
+    {
+<span class="nc" id="L172">        return deptName;</span>
+    }
+
+    public void setDeptName(String deptName)
+    {
+<span class="nc" id="L177">        this.deptName = deptName;</span>
+<span class="nc" id="L178">    }</span>
+
+    public String getOperUrl()
+    {
+<span class="nc" id="L182">        return operUrl;</span>
+    }
+
+    public void setOperUrl(String operUrl)
+    {
+<span class="nc" id="L187">        this.operUrl = operUrl;</span>
+<span class="nc" id="L188">    }</span>
+
+    public String getOperIp()
+    {
+<span class="nc" id="L192">        return operIp;</span>
+    }
+
+    public void setOperIp(String operIp)
+    {
+<span class="nc" id="L197">        this.operIp = operIp;</span>
+<span class="nc" id="L198">    }</span>
+
+    public String getOperLocation()
+    {
+<span class="nc" id="L202">        return operLocation;</span>
+    }
+
+    public void setOperLocation(String operLocation)
+    {
+<span class="nc" id="L207">        this.operLocation = operLocation;</span>
+<span class="nc" id="L208">    }</span>
+
+    public String getOperParam()
+    {
+<span class="nc" id="L212">        return operParam;</span>
+    }
+
+    public void setOperParam(String operParam)
+    {
+<span class="nc" id="L217">        this.operParam = operParam;</span>
+<span class="nc" id="L218">    }</span>
+
+    public String getJsonResult()
+    {
+<span class="nc" id="L222">        return jsonResult;</span>
+    }
+
+    public void setJsonResult(String jsonResult)
+    {
+<span class="nc" id="L227">        this.jsonResult = jsonResult;</span>
+<span class="nc" id="L228">    }</span>
+
+    public Integer getStatus()
+    {
+<span class="nc" id="L232">        return status;</span>
+    }
+
+    public void setStatus(Integer status)
+    {
+<span class="nc" id="L237">        this.status = status;</span>
+<span class="nc" id="L238">    }</span>
+
+    public String getErrorMsg()
+    {
+<span class="nc" id="L242">        return errorMsg;</span>
+    }
+
+    public void setErrorMsg(String errorMsg)
+    {
+<span class="nc" id="L247">        this.errorMsg = errorMsg;</span>
+<span class="nc" id="L248">    }</span>
+
+    public Date getOperTime()
+    {
+<span class="nc" id="L252">        return operTime;</span>
+    }
+
+    public void setOperTime(Date operTime)
+    {
+<span class="nc" id="L257">        this.operTime = operTime;</span>
+<span class="nc" id="L258">    }</span>
+
+    public Long getCostTime()
+    {
+<span class="nc" id="L262">        return costTime;</span>
+    }
+
+    public void setCostTime(Long costTime)
+    {
+<span class="nc" id="L267">        this.costTime = costTime;</span>
+<span class="nc" id="L268">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

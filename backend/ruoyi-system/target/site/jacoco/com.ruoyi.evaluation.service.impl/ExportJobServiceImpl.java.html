@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExportJobServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.service.impl</a> &gt; <span class="el_source">ExportJobServiceImpl.java</span></div><h1>ExportJobServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.service.impl;
+
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.ruoyi.evaluation.domain.ExportJob;
+import com.ruoyi.evaluation.mapper.ExportJobMapper;
+import com.ruoyi.evaluation.service.IExportJobService;
+
+@Service
+<span class="nc" id="L11">public class ExportJobServiceImpl implements IExportJobService</span>
+{
+    @Autowired
+    private ExportJobMapper exportJobMapper;
+
+    @Override
+<span class="nc" id="L17">    public List&lt;ExportJob&gt; selectExportJobList(ExportJob exportJob) { return exportJobMapper.selectExportJobList(exportJob); }</span>
+    @Override
+<span class="nc" id="L19">    public ExportJob selectExportJobById(Long id) { return exportJobMapper.selectExportJobById(id); }</span>
+    @Override
+<span class="nc" id="L21">    public int insertExportJob(ExportJob exportJob) { return exportJobMapper.insertExportJob(exportJob); }</span>
+    @Override
+<span class="nc" id="L23">    public int updateExportJob(ExportJob exportJob) { return exportJobMapper.updateExportJob(exportJob); }</span>
+    @Override
+<span class="nc" id="L25">    public int deleteExportJobByIds(Long[] ids) { return exportJobMapper.deleteExportJobByIds(ids); }</span>
+    @Override
+<span class="nc" id="L27">    public int deleteExportJobById(Long id) { return exportJobMapper.deleteExportJobById(id); }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

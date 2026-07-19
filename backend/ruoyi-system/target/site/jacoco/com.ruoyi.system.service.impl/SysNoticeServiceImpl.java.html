@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SysNoticeServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.system.service.impl</a> &gt; <span class="el_source">SysNoticeServiceImpl.java</span></div><h1>SysNoticeServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.system.service.impl;
+
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.ruoyi.system.domain.SysNotice;
+import com.ruoyi.system.mapper.SysNoticeMapper;
+import com.ruoyi.system.service.ISysNoticeService;
+
+/**
+ * 公告 服务层实现
+ * 
+ * @author 职称评审系统项目组
+ */
+@Service
+<span class="nc" id="L16">public class SysNoticeServiceImpl implements ISysNoticeService</span>
+{
+    @Autowired
+    private SysNoticeMapper noticeMapper;
+
+    /**
+     * 查询公告信息
+     * 
+     * @param noticeId 公告ID
+     * @return 公告信息
+     */
+    @Override
+    public SysNotice selectNoticeById(Long noticeId)
+    {
+<span class="nc" id="L30">        return noticeMapper.selectNoticeById(noticeId);</span>
+    }
+
+    /**
+     * 查询公告列表
+     * 
+     * @param notice 公告信息
+     * @return 公告集合
+     */
+    @Override
+    public List&lt;SysNotice&gt; selectNoticeList(SysNotice notice)
+    {
+<span class="nc" id="L42">        return noticeMapper.selectNoticeList(notice);</span>
+    }
+
+    /**
+     * 新增公告
+     * 
+     * @param notice 公告信息
+     * @return 结果
+     */
+    @Override
+    public int insertNotice(SysNotice notice)
+    {
+<span class="nc" id="L54">        return noticeMapper.insertNotice(notice);</span>
+    }
+
+    /**
+     * 修改公告
+     * 
+     * @param notice 公告信息
+     * @return 结果
+     */
+    @Override
+    public int updateNotice(SysNotice notice)
+    {
+<span class="nc" id="L66">        return noticeMapper.updateNotice(notice);</span>
+    }
+
+    /**
+     * 删除公告对象
+     * 
+     * @param noticeId 公告ID
+     * @return 结果
+     */
+    @Override
+    public int deleteNoticeById(Long noticeId)
+    {
+<span class="nc" id="L78">        return noticeMapper.deleteNoticeById(noticeId);</span>
+    }
+
+    /**
+     * 批量删除公告信息
+     * 
+     * @param noticeIds 需要删除的公告ID
+     * @return 结果
+     */
+    @Override
+    public int deleteNoticeByIds(Long[] noticeIds)
+    {
+<span class="nc" id="L90">        return noticeMapper.deleteNoticeByIds(noticeIds);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

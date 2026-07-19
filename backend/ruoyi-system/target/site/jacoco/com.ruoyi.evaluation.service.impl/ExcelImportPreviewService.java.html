@@ -1,0 +1,1197 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExcelImportPreviewService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.service.impl</a> &gt; <span class="el_source">ExcelImportPreviewService.java</span></div><h1>ExcelImportPreviewService.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.service.impl;
+
+import java.io.InputStream;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.evaluation.domain.ActivityCandidate;
+import com.ruoyi.evaluation.domain.ActivityVoter;
+import com.ruoyi.evaluation.domain.Candidate;
+import com.ruoyi.evaluation.domain.ExportJob;
+import com.ruoyi.evaluation.domain.ImportPreviewResult;
+import com.ruoyi.evaluation.domain.ImportPreviewResult.ImportError;
+import com.ruoyi.evaluation.domain.ImportPreviewResult.SheetPreview;
+import com.ruoyi.evaluation.domain.Voter;
+import com.ruoyi.evaluation.mapper.ActivityCandidateMapper;
+import com.ruoyi.evaluation.mapper.ActivityVoterMapper;
+import com.ruoyi.evaluation.mapper.CandidateMapper;
+import com.ruoyi.evaluation.mapper.ExportJobMapper;
+import com.ruoyi.evaluation.mapper.VoterMapper;
+import com.ruoyi.evaluation.support.EvaluationTitleUtils;
+
+@Service
+<span class="fc" id="L45">public class ExcelImportPreviewService</span>
+{
+    private static final int MAX_PREVIEW_ROWS_PER_SHEET = 20;
+    private static final int MAX_SCAN_ROWS_PER_SHEET = 2000;
+    private static final int MAX_SCAN_COLUMNS = 80;
+    private static final int MAX_JOB_ERROR_MESSAGE_LENGTH = 1000;
+    private static final String IMPORT_TYPE_CANDIDATE = &quot;CANDIDATE_IMPORT&quot;;
+    private static final String IMPORT_TYPE_VOTER = &quot;VOTER_IMPORT&quot;;
+    private static final String NO_CANDIDATE_IMPORTED_MESSAGE = &quot;未识别到可导入候选人，请检查 sheet 名是否为申报等级、是否为说明 sheet、表头是否包含姓名/身份证号。&quot;;
+
+<span class="fc" id="L55">    private enum CandidateImportMappingMode</span>
+    {
+<span class="fc" id="L57">        DEFAULT, SORTED, SYSTEM</span>
+    }
+
+    @Autowired
+    private ExportJobMapper exportJobMapper;
+
+    public ImportPreviewResult preview(Long activityId, MultipartFile file, String importType, String username) throws Exception
+    {
+<span class="pc bpc" id="L65" title="1 of 4 branches missed.">        if (activityId != null &amp;&amp; IMPORT_TYPE_CANDIDATE.equals(importType))</span>
+        {
+<span class="fc" id="L67">            return previewSortedCandidates(activityId, file, importType, username);</span>
+        }
+<span class="fc" id="L69">        validateExcelFile(file);</span>
+<span class="fc" id="L70">        ImportPreviewResult result = new ImportPreviewResult();</span>
+<span class="fc" id="L71">        result.setActivityId(activityId);</span>
+<span class="fc" id="L72">        result.setImportType(importType);</span>
+<span class="fc" id="L73">        result.setFileName(file.getOriginalFilename());</span>
+<span class="fc" id="L74">        try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream))</span>
+        {
+<span class="fc" id="L76">            result.setSheetCount(workbook.getNumberOfSheets());</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">            for (int i = 0; i &lt; workbook.getNumberOfSheets(); i++)</span>
+            {
+<span class="fc" id="L79">                parseSheet(workbook.getSheetAt(i), result);</span>
+            }
+<span class="fc bfc" id="L81" title="All 2 branches covered.">            saveJob(activityId, importType, file.getOriginalFilename(), username, result.getErrors().isEmpty() ? &quot;SUCCESS&quot; : &quot;PARTIAL_SUCCESS&quot;, buildErrorMessage(result));</span>
+<span class="fc" id="L82">            return result;</span>
+        }
+<span class="nc" id="L84">        catch (Exception e)</span>
+        {
+<span class="nc" id="L86">            saveJob(activityId, importType, file.getOriginalFilename(), username, &quot;FAILED&quot;, e.getMessage());</span>
+<span class="nc" id="L87">            throw e;</span>
+        }
+    }
+
+    public ImportPreviewResult importCandidates(Long activityId, MultipartFile file, String username, CandidateMapper candidateMapper, ActivityCandidateMapper activityCandidateMapper) throws Exception
+    {
+<span class="fc" id="L93">        return importSortedCandidates(activityId, file, username, candidateMapper, activityCandidateMapper);</span>
+    }
+
+    private ImportPreviewResult importSortedCandidates(Long activityId, MultipartFile file, String username,
+            CandidateMapper candidateMapper, ActivityCandidateMapper activityCandidateMapper) throws Exception
+    {
+<span class="fc" id="L99">        validateExcelFile(file);</span>
+<span class="fc" id="L100">        ImportPreviewResult result = new ImportPreviewResult();</span>
+<span class="fc" id="L101">        result.setActivityId(activityId);</span>
+<span class="fc" id="L102">        result.setImportType(IMPORT_TYPE_CANDIDATE);</span>
+<span class="fc" id="L103">        result.setFileName(file.getOriginalFilename());</span>
+<span class="fc" id="L104">        Set&lt;String&gt; seenCandidateKeys = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L105">        int[] nextPoolImportSeq = new int[] { nextPoolImportSeq(candidateMapper) };</span>
+<span class="fc" id="L106">        int imported = 0;</span>
+<span class="fc" id="L107">        try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream))</span>
+        {
+<span class="fc" id="L109">            result.setSheetCount(workbook.getNumberOfSheets());</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">            for (int i = 0; i &lt; workbook.getNumberOfSheets(); i++)</span>
+            {
+<span class="fc" id="L112">                Sheet sheet = workbook.getSheetAt(i);</span>
+<span class="fc" id="L113">                SheetPreview preview = new SheetPreview();</span>
+<span class="fc" id="L114">                preview.setSheetName(sheet.getSheetName());</span>
+<span class="fc" id="L115">                result.getSheets().add(preview);</span>
+
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">                if (isInstructionSheet(sheet))</span>
+                {
+<span class="nc" id="L119">                    continue;</span>
+                }
+<span class="fc" id="L121">                int headerRowIndex = findSortedCandidateHeaderRow(sheet);</span>
+<span class="fc" id="L122">                boolean sortedSheet = false;</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">                if (headerRowIndex &lt; 0)</span>
+                {
+<span class="fc" id="L125">                    headerRowIndex = findCandidateHeaderRow(sheet);</span>
+                }
+                else
+                {
+<span class="fc" id="L129">                    String sortedTitle = sheetTitle(sheet, headerRowIndex);</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">                    sortedSheet = isSortedCandidateSheet(sheet, sortedTitle)</span>
+<span class="fc bfc" id="L131" title="All 2 branches covered.">                            || isSortedCandidateFile(file.getOriginalFilename());</span>
+<span class="pc bpc" id="L132" title="1 of 4 branches missed.">                    if (!sortedSheet &amp;&amp; parseAppliedLevel(sheet.getSheetName()) == null)</span>
+                    {
+<span class="fc" id="L134">                        headerRowIndex = findCandidateHeaderRow(sheet);</span>
+                    }
+                }
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">                if (headerRowIndex &lt; 0)</span>
+                {
+<span class="nc" id="L139">                    result.getErrors().add(new ImportError(sheet.getSheetName(), null, null, &quot;No candidate header row found; skipped&quot;));</span>
+<span class="nc" id="L140">                    continue;</span>
+                }
+<span class="fc" id="L142">                String title = sheetTitle(sheet, headerRowIndex);</span>
+<span class="pc bpc" id="L143" title="1 of 4 branches missed.">                sortedSheet = sortedSheet || isSortedCandidateSheet(sheet, title)</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">                        || isSortedCandidateFile(file.getOriginalFilename());</span>
+<span class="fc" id="L145">                String sheetAppliedLevel = parseAppliedLevel(sheet.getSheetName());</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">                String groupName = sortedSheet</span>
+<span class="fc" id="L147">                        ? resolveGroupName(file.getOriginalFilename(), null, null)</span>
+<span class="fc" id="L148">                        : resolveGroupName(file.getOriginalFilename(), title, sheet.getSheetName());</span>
+
+<span class="fc" id="L150">                List&lt;String&gt; headers = readHeaders(sheet.getRow(headerRowIndex));</span>
+<span class="fc" id="L151">                preview.setHeaderRowNo(headerRowIndex + 1);</span>
+<span class="fc" id="L152">                preview.setHeaders(headers);</span>
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">                if (headers.isEmpty())</span>
+                {
+<span class="nc" id="L155">                    result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, null, &quot;Header row is empty&quot;));</span>
+<span class="nc" id="L156">                    continue;</span>
+                }
+<span class="pc bpc" id="L158" title="2 of 6 branches missed.">                if (!sortedSheet &amp;&amp; StringUtils.isEmpty(sheetAppliedLevel) &amp;&amp; !hasAppliedLevelHeader(headers))</span>
+                {
+<span class="nc" id="L160">                    result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, &quot;appliedLevel&quot;, &quot;Cannot identify applied level from sheet name or row header; skipped&quot;));</span>
+<span class="nc" id="L161">                    continue;</span>
+                }
+<span class="pc bpc" id="L163" title="1 of 4 branches missed.">                if (StringUtils.isEmpty(groupName) &amp;&amp; !hasDepartmentHeader(headers))</span>
+                {
+<span class="nc" id="L165">                    result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, &quot;department&quot;, &quot;Cannot identify candidate group from file name, sheet title or row header; skipped&quot;));</span>
+<span class="nc" id="L166">                    continue;</span>
+                }
+<span class="fc" id="L168">                CandidateImportMappingMode mappingMode = resolveCandidateMappingMode(file.getOriginalFilename(), sortedSheet);</span>
+
+<span class="fc" id="L170">                int lastRow = Math.min(sheet.getLastRowNum(), headerRowIndex + MAX_SCAN_ROWS_PER_SHEET);</span>
+<span class="fc bfc" id="L171" title="All 2 branches covered.">                for (int rowIndex = headerRowIndex + 1; rowIndex &lt;= lastRow; rowIndex++)</span>
+                {
+<span class="fc" id="L173">                    Row row = sheet.getRow(rowIndex);</span>
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">                    if (isRowEmpty(row, headers.size()))</span>
+                    {
+<span class="nc" id="L176">                        continue;</span>
+                    }
+<span class="fc" id="L178">                    Map&lt;String, String&gt; values = rowValues(row, headers);</span>
+<span class="pc bpc" id="L179" title="1 of 4 branches missed.">                    if (!sortedSheet &amp;&amp; isCandidateIdentityBlank(values))</span>
+                    {
+<span class="nc" id="L181">                        continue;</span>
+                    }
+<span class="fc" id="L183">                    result.setTotalRows(result.getTotalRows() + 1);</span>
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">                    if (preview.getRows().size() &lt; MAX_PREVIEW_ROWS_PER_SHEET)</span>
+                    {
+<span class="fc" id="L186">                        Map&lt;String, String&gt; previewValues = new LinkedHashMap&lt;&gt;(values);</span>
+<span class="fc" id="L187">                        previewValues.put(&quot;_rowNo&quot;, String.valueOf(rowIndex + 1));</span>
+<span class="fc" id="L188">                        previewValues.put(&quot;_group&quot;, groupName);</span>
+<span class="fc" id="L189">                        preview.getRows().add(previewValues);</span>
+<span class="fc" id="L190">                        result.setPreviewRows(result.getPreviewRows() + 1);</span>
+                    }
+<span class="fc bfc" id="L192" title="All 2 branches covered.">                    if (sortedSheet)</span>
+                    {
+<span class="pc bpc" id="L194" title="1 of 2 branches missed.">                        imported += importSortedCandidateRow(activityId, groupName, values, rowIndex + 1, result,</span>
+                                seenCandidateKeys, nextPoolImportSeq, candidateMapper, activityCandidateMapper, username,
+<span class="pc" id="L196">                                mappingMode) ? 1 : 0;</span>
+                    }
+                    else
+                    {
+<span class="fc bfc" id="L200" title="All 2 branches covered.">                        imported += importCandidateRow(activityId, groupName, sheetAppliedLevel, values, rowIndex + 1, result,</span>
+                                seenCandidateKeys, nextPoolImportSeq, candidateMapper, activityCandidateMapper, username, &quot;EXCEL&quot;,
+<span class="fc" id="L202">                                mappingMode) ? 1 : 0;</span>
+                    }
+                }
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">                if (sheet.getLastRowNum() &gt; lastRow)</span>
+                {
+<span class="nc" id="L207">                    result.getErrors().add(new ImportError(sheet.getSheetName(), lastRow + 1, null, &quot;Rows after scan limit are not imported&quot;));</span>
+                }
+            }
+<span class="fc" id="L210">            result.setImportedRows(imported);</span>
+<span class="fc" id="L211">            assertImportedCandidateRows(imported, result);</span>
+<span class="fc" id="L212">            saveJob(activityId, IMPORT_TYPE_CANDIDATE, file.getOriginalFilename(), username,</span>
+<span class="fc bfc" id="L213" title="All 2 branches covered.">                    result.getErrors().isEmpty() ? &quot;SUCCESS&quot; : &quot;PARTIAL_SUCCESS&quot;, &quot;imported=&quot; + imported + errorSuffix(result));</span>
+<span class="fc" id="L214">            return result;</span>
+        }
+<span class="fc" id="L216">        catch (Exception e)</span>
+        {
+<span class="fc" id="L218">            saveJob(activityId, IMPORT_TYPE_CANDIDATE, file.getOriginalFilename(), username, &quot;FAILED&quot;, e.getMessage());</span>
+<span class="fc" id="L219">            throw e;</span>
+        }
+    }
+
+    private ImportPreviewResult previewSortedCandidates(Long activityId, MultipartFile file, String importType,
+            String username) throws Exception
+    {
+<span class="fc" id="L226">        validateExcelFile(file);</span>
+<span class="fc" id="L227">        ImportPreviewResult result = new ImportPreviewResult();</span>
+<span class="fc" id="L228">        result.setActivityId(activityId);</span>
+<span class="fc" id="L229">        result.setImportType(importType);</span>
+<span class="fc" id="L230">        result.setFileName(file.getOriginalFilename());</span>
+<span class="fc" id="L231">        try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream))</span>
+        {
+<span class="fc" id="L233">            result.setSheetCount(workbook.getNumberOfSheets());</span>
+<span class="fc bfc" id="L234" title="All 2 branches covered.">            for (int i = 0; i &lt; workbook.getNumberOfSheets(); i++)</span>
+            {
+<span class="fc" id="L236">                parseSortedCandidateSheet(workbook.getSheetAt(i), file.getOriginalFilename(), result);</span>
+            }
+<span class="fc" id="L238">            saveJob(activityId, importType, file.getOriginalFilename(), username,</span>
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">                    result.getErrors().isEmpty() ? &quot;SUCCESS&quot; : &quot;PARTIAL_SUCCESS&quot;, buildErrorMessage(result));</span>
+<span class="fc" id="L240">            return result;</span>
+        }
+<span class="nc" id="L242">        catch (Exception e)</span>
+        {
+<span class="nc" id="L244">            saveJob(activityId, importType, file.getOriginalFilename(), username, &quot;FAILED&quot;, e.getMessage());</span>
+<span class="nc" id="L245">            throw e;</span>
+        }
+    }
+
+    private boolean importSortedCandidateRow(Long activityId, String groupName, Map&lt;String, String&gt; values, int rowNo,
+            ImportPreviewResult result, Set&lt;String&gt; seenCandidateKeys, int[] nextPoolImportSeq,
+            CandidateMapper candidateMapper, ActivityCandidateMapper activityCandidateMapper, String username,
+            CandidateImportMappingMode mappingMode)
+    {
+<span class="fc" id="L254">        Candidate candidate = buildCandidateFromValues(groupName, null, values, username, mappingMode);</span>
+<span class="fc" id="L255">        candidate.setImportSeq(parseInteger(valueOf(values, &quot;排序&quot;, &quot;序号&quot;, &quot;排名&quot;, &quot;importSeq&quot;)));</span>
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">        if (candidate.getImportSeq() == null)</span>
+        {
+<span class="fc" id="L258">            result.getErrors().add(new ImportError(null, rowNo, &quot;importSeq&quot;, &quot;Candidate rank is empty or invalid; skipped&quot;));</span>
+<span class="fc" id="L259">            return false;</span>
+        }
+<span class="nc" id="L261">        return importCandidate(activityId, candidate, rowNo, result, seenCandidateKeys, nextPoolImportSeq,</span>
+                candidateMapper, activityCandidateMapper, username, &quot;SORTED_EXCEL&quot;);
+    }
+
+    private boolean importCandidateRow(Long activityId, String fallbackGroupName, String sheetAppliedLevel,
+            Map&lt;String, String&gt; values, int rowNo, ImportPreviewResult result, Set&lt;String&gt; seenCandidateKeys,
+            int[] nextPoolImportSeq, CandidateMapper candidateMapper, ActivityCandidateMapper activityCandidateMapper,
+            String username, String sourceType, CandidateImportMappingMode mappingMode)
+    {
+<span class="fc" id="L270">        Candidate candidate = buildCandidateFromValues(fallbackGroupName, sheetAppliedLevel, values, username, mappingMode);</span>
+<span class="fc" id="L271">        Integer importSeq = parseInteger(valueOf(values, &quot;排序&quot;, &quot;序号&quot;, &quot;排名&quot;, &quot;importSeq&quot;));</span>
+<span class="fc" id="L272">        candidate.setImportSeq(importSeq);</span>
+<span class="fc" id="L273">        return importCandidate(activityId, candidate, rowNo, result, seenCandidateKeys, nextPoolImportSeq,</span>
+                candidateMapper, activityCandidateMapper, username, sourceType);
+    }
+
+    private Candidate buildCandidateFromValues(String fallbackGroupName, String sheetAppliedLevel,
+            Map&lt;String, String&gt; values, String username, CandidateImportMappingMode mappingMode)
+    {
+<span class="fc" id="L280">        Candidate candidate = new Candidate();</span>
+<span class="fc" id="L281">        candidate.setCompany(resolveCompany(values, mappingMode));</span>
+<span class="fc" id="L282">        candidate.setName(valueOf(values, &quot;姓名&quot;, &quot;姓 名&quot;, &quot;名称&quot;, &quot;编号&quot;, &quot;人员编号&quot;, &quot;name&quot;));</span>
+<span class="fc" id="L283">        candidate.setGender(valueOf(values, &quot;性别&quot;, &quot;gender&quot;));</span>
+<span class="fc" id="L284">        candidate.setBirthDate(parseDate(valueOf(values, &quot;出生年月&quot;, &quot;出生日期&quot;, &quot;birthDate&quot;)));</span>
+<span class="fc" id="L285">        candidate.setEducation(valueOf(values, &quot;学历&quot;, &quot;最高学历&quot;, &quot;education&quot;));</span>
+<span class="fc" id="L286">        candidate.setFirstLevelDepartment(valueOf(values, &quot;一级部门&quot;, &quot;一级组织&quot;, &quot;firstLevelDepartment&quot;));</span>
+<span class="fc" id="L287">        candidate.setDepartment(resolveDepartment(values, fallbackGroupName, mappingMode));</span>
+<span class="fc" id="L288">        candidate.setPosition(resolvePosition(values, mappingMode));</span>
+<span class="fc" id="L289">        candidate.setIdCard(normalizeIdCard(valueOf(values, &quot;身份证号&quot;, &quot;身份证号码&quot;, &quot;身份证件号&quot;, &quot;证件号码&quot;, &quot;证件号&quot;, &quot;idCard&quot;)));</span>
+<span class="fc" id="L290">        candidate.setCurrentLevel(valueOf(values, &quot;当前等级&quot;, &quot;现等级&quot;, &quot;现职称&quot;, &quot;currentLevel&quot;));</span>
+<span class="fc" id="L291">        candidate.setAppliedLevel(normalizeAppliedLevel(firstPresent(sheetAppliedLevel,</span>
+<span class="fc" id="L292">                valueOf(values, &quot;申报职称&quot;, &quot;申报等级&quot;, &quot;报名等级&quot;, &quot;职称&quot;, &quot;等级&quot;, &quot;appliedLevel&quot;, &quot;level&quot;))));</span>
+<span class="fc" id="L293">        candidate.setThirdLevelDepartment(resolveThirdLevelDepartment(values, candidate, mappingMode));</span>
+<span class="fc" id="L294">        candidate.setLastYearAssessment(valueOf(values, &quot;上年度考核结果&quot;, &quot;lastYearAssessment&quot;));</span>
+<span class="fc" id="L295">        candidate.setEvaluationScore(valueOf(values, &quot;评价结果&quot;, &quot;评价分&quot;, &quot;评分&quot;, &quot;综合得分&quot;, &quot;evaluationScore&quot;));</span>
+<span class="fc" id="L296">        candidate.setCreateBy(username);</span>
+<span class="fc" id="L297">        candidate.setFixedType(null);</span>
+<span class="fc" id="L298">        return candidate;</span>
+    }
+
+    private CandidateImportMappingMode resolveCandidateMappingMode(String fileName, boolean sortedSheet)
+    {
+<span class="fc" id="L303">        String normalizedFileName = StringUtils.defaultString(fileName);</span>
+<span class="pc bpc" id="L304" title="1 of 2 branches missed.">        if (normalizedFileName.contains(&quot;系统导入&quot;))</span>
+        {
+<span class="nc" id="L306">            return CandidateImportMappingMode.SYSTEM;</span>
+        }
+<span class="pc bpc" id="L308" title="1 of 4 branches missed.">        if (sortedSheet || normalizedFileName.contains(&quot;排序&quot;))</span>
+        {
+<span class="fc" id="L310">            return CandidateImportMappingMode.SORTED;</span>
+        }
+<span class="fc" id="L312">        return CandidateImportMappingMode.DEFAULT;</span>
+    }
+
+    private String resolveCompany(Map&lt;String, String&gt; values, CandidateImportMappingMode mappingMode)
+    {
+<span class="fc bfc" id="L317" title="All 2 branches covered.">        if (mappingMode == CandidateImportMappingMode.SORTED)</span>
+        {
+<span class="fc" id="L319">            return valueOf(values, &quot;工作单位&quot;, &quot;所在单位&quot;, &quot;company&quot;);</span>
+        }
+<span class="fc" id="L321">        return valueOf(values, &quot;单位&quot;, &quot;工作单位&quot;, &quot;所在单位&quot;, &quot;company&quot;);</span>
+    }
+
+    private String resolveDepartment(Map&lt;String, String&gt; values, String fallbackGroupName,
+            CandidateImportMappingMode mappingMode)
+    {
+<span class="fc bfc" id="L327" title="All 2 branches covered.">        if (mappingMode == CandidateImportMappingMode.SORTED)</span>
+        {
+<span class="fc" id="L329">            return fallbackGroupName;</span>
+        }
+<span class="pc bpc" id="L331" title="1 of 2 branches missed.">        if (mappingMode == CandidateImportMappingMode.SYSTEM)</span>
+        {
+<span class="nc" id="L333">            return firstPresent(valueOf(values, &quot;二级部门&quot;, &quot;二级组织&quot;, &quot;department&quot;),</span>
+<span class="nc" id="L334">                    valueOf(values, &quot;评审专业&quot;, &quot;组别&quot;, &quot;申报组别&quot;), fallbackGroupName);</span>
+        }
+<span class="fc" id="L336">        return firstPresent(valueOf(values, &quot;评审专业&quot;, &quot;组别&quot;, &quot;申报组别&quot;, &quot;二级部门&quot;, &quot;二级组织&quot;, &quot;department&quot;),</span>
+                fallbackGroupName);
+    }
+
+    private String resolvePosition(Map&lt;String, String&gt; values, CandidateImportMappingMode mappingMode)
+    {
+<span class="fc bfc" id="L342" title="All 2 branches covered.">        if (mappingMode == CandidateImportMappingMode.SORTED)</span>
+        {
+<span class="fc" id="L344">            return valueOf(values, &quot;单位&quot;, &quot;现岗位&quot;, &quot;岗位&quot;, &quot;部门/岗位&quot;, &quot;部门&quot;, &quot;职务&quot;, &quot;position&quot;);</span>
+        }
+<span class="pc bpc" id="L346" title="1 of 2 branches missed.">        if (mappingMode == CandidateImportMappingMode.SYSTEM)</span>
+        {
+<span class="nc" id="L348">            return valueOf(values, &quot;岗位&quot;, &quot;部门/岗位&quot;, &quot;现岗位&quot;, &quot;职务&quot;, &quot;position&quot;);</span>
+        }
+<span class="fc" id="L350">        return valueOf(values, &quot;现岗位&quot;, &quot;岗位&quot;, &quot;部门/岗位&quot;, &quot;部门&quot;, &quot;职务&quot;, &quot;position&quot;);</span>
+    }
+
+    private String resolveThirdLevelDepartment(Map&lt;String, String&gt; values, Candidate candidate,
+            CandidateImportMappingMode mappingMode)
+    {
+<span class="pc bpc" id="L356" title="1 of 2 branches missed.">        if (mappingMode == CandidateImportMappingMode.SYSTEM)</span>
+        {
+<span class="nc" id="L358">            return firstPresent(valueOf(values, &quot;三级部门&quot;, &quot;thirdLevelDepartment&quot;),</span>
+<span class="nc" id="L359">                    valueOf(values, &quot;专业&quot;, &quot;专业组别&quot;));</span>
+        }
+<span class="fc" id="L361">        return firstPresent(valueOf(values, &quot;三级部门&quot;, &quot;评审专业&quot;, &quot;专业&quot;, &quot;专业组别&quot;, &quot;thirdLevelDepartment&quot;),</span>
+<span class="fc" id="L362">                buildThirdLevelDepartment(candidate.getDepartment(), candidate.getCurrentLevel()));</span>
+    }
+
+    private boolean importCandidate(Long activityId, Candidate candidate, int rowNo, ImportPreviewResult result,
+            Set&lt;String&gt; seenCandidateKeys, int[] nextPoolImportSeq, CandidateMapper candidateMapper,
+            ActivityCandidateMapper activityCandidateMapper, String username, String sourceType)
+    {
+<span class="pc bpc" id="L369" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(candidate.getName()))</span>
+        {
+<span class="nc" id="L371">            result.getErrors().add(new ImportError(null, rowNo, &quot;name&quot;, &quot;Candidate name is empty; skipped&quot;));</span>
+<span class="nc" id="L372">            return false;</span>
+        }
+<span class="pc bpc" id="L374" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(candidate.getIdCard()))</span>
+        {
+<span class="nc" id="L376">            result.getErrors().add(new ImportError(null, rowNo, &quot;idCard&quot;, &quot;ID card is empty; skipped&quot;));</span>
+<span class="nc" id="L377">            return false;</span>
+        }
+<span class="fc bfc" id="L379" title="All 2 branches covered.">        if (StringUtils.isEmpty(candidate.getAppliedLevel()))</span>
+        {
+<span class="fc" id="L381">            result.getErrors().add(new ImportError(null, rowNo, &quot;appliedLevel&quot;, &quot;Candidate applied title/level is empty; skipped&quot;));</span>
+<span class="fc" id="L382">            return false;</span>
+        }
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(candidate.getDepartment()))</span>
+        {
+<span class="nc" id="L386">            result.getErrors().add(new ImportError(null, rowNo, &quot;department&quot;, &quot;Candidate group is empty; skipped&quot;));</span>
+<span class="nc" id="L387">            return false;</span>
+        }
+<span class="fc bfc" id="L389" title="All 2 branches covered.">        if (activityId == null)</span>
+        {
+<span class="pc bpc" id="L391" title="1 of 2 branches missed.">            if (!seenCandidateKeys.add(candidate.getIdCard()))</span>
+            {
+<span class="nc" id="L393">                result.getErrors().add(new ImportError(null, rowNo, &quot;idCard&quot;, &quot;Duplicate ID card in uploaded file; skipped&quot;));</span>
+<span class="nc" id="L394">                return false;</span>
+            }
+<span class="fc bfc" id="L396" title="All 2 branches covered.">            if (candidateMapper.selectCandidateByIdCard(candidate.getIdCard()) != null)</span>
+            {
+<span class="fc" id="L398">                result.getErrors().add(new ImportError(null, rowNo, &quot;idCard&quot;, &quot;ID card already exists in candidate pool; skipped&quot;));</span>
+<span class="fc" id="L399">                return false;</span>
+            }
+<span class="fc" id="L401">            assignPoolSequence(candidate, nextPoolImportSeq);</span>
+<span class="fc" id="L402">            candidateMapper.insertCandidate(candidate);</span>
+<span class="fc" id="L403">            return true;</span>
+        }
+<span class="fc" id="L405">        String candidateKey = activityCandidateScopeKey(candidate);</span>
+<span class="fc bfc" id="L406" title="All 2 branches covered.">        if (!seenCandidateKeys.add(candidateKey))</span>
+        {
+<span class="fc" id="L408">            result.getErrors().add(new ImportError(null, rowNo, &quot;idCard&quot;, &quot;Duplicate candidate in the same group and applied level in uploaded file; skipped&quot;));</span>
+<span class="fc" id="L409">            return false;</span>
+        }
+
+<span class="fc" id="L412">        Integer activityImportSeq = candidate.getImportSeq();</span>
+<span class="fc" id="L413">        Candidate poolCandidate = candidateMapper.selectCandidateByIdCard(candidate.getIdCard());</span>
+<span class="pc bpc" id="L414" title="1 of 2 branches missed.">        if (poolCandidate == null)</span>
+        {
+<span class="fc" id="L416">            assignPoolSequence(candidate, nextPoolImportSeq);</span>
+<span class="fc" id="L417">            candidateMapper.insertCandidate(candidate);</span>
+<span class="fc" id="L418">            poolCandidate = candidate;</span>
+        }
+<span class="fc" id="L420">        candidate.setImportSeq(activityImportSeq);</span>
+<span class="fc" id="L421">        ActivityCandidate activityCandidate = toActivityCandidate(activityId, poolCandidate, candidate, sourceType, username);</span>
+<span class="pc bpc" id="L422" title="1 of 2 branches missed.">        if (activityCandidateMapper.selectActivityCandidateByActivityIdAndScope(activityCandidate) != null)</span>
+        {
+<span class="nc" id="L424">            result.getErrors().add(new ImportError(null, rowNo, &quot;idCard&quot;, &quot;Candidate already exists in this activity group and applied level; skipped&quot;));</span>
+<span class="nc" id="L425">            return false;</span>
+        }
+<span class="fc" id="L427">        activityCandidateMapper.insertActivityCandidate(activityCandidate);</span>
+<span class="fc" id="L428">        return true;</span>
+    }
+
+    private String activityCandidateScopeKey(Candidate candidate)
+    {
+<span class="fc" id="L433">        return StringUtils.defaultString(candidate.getDepartment()) + &quot;|&quot;</span>
+<span class="fc" id="L434">                + StringUtils.defaultString(candidate.getAppliedLevel()) + &quot;|&quot;</span>
+<span class="fc" id="L435">                + StringUtils.defaultString(candidate.getIdCard());</span>
+    }
+
+    private boolean isCandidateIdentityBlank(Map&lt;String, String&gt; values)
+    {
+<span class="pc bpc" id="L440" title="1 of 2 branches missed.">        return StringUtils.isEmpty(valueOf(values, &quot;姓名&quot;, &quot;姓 名&quot;, &quot;名称&quot;, &quot;name&quot;))</span>
+<span class="pc bnc" id="L441" title="All 2 branches missed.">                &amp;&amp; StringUtils.isEmpty(valueOf(values, &quot;身份证号&quot;, &quot;身份证号码&quot;, &quot;身份证件号&quot;, &quot;证件号码&quot;, &quot;证件号&quot;, &quot;idCard&quot;));</span>
+    }
+
+    private ActivityCandidate toActivityCandidate(Long activityId, Candidate poolCandidate, Candidate importedCandidate, String sourceType, String username)
+    {
+<span class="fc" id="L446">        ActivityCandidate activityCandidate = new ActivityCandidate();</span>
+<span class="fc" id="L447">        activityCandidate.setActivityId(activityId);</span>
+<span class="pc bpc" id="L448" title="1 of 2 branches missed.">        activityCandidate.setCandidateId(poolCandidate == null ? null : poolCandidate.getId());</span>
+<span class="fc" id="L449">        activityCandidate.setSourceType(sourceType);</span>
+<span class="fc" id="L450">        activityCandidate.setImportSeq(importedCandidate.getImportSeq());</span>
+<span class="fc" id="L451">        activityCandidate.setName(importedCandidate.getName());</span>
+<span class="fc" id="L452">        activityCandidate.setGender(importedCandidate.getGender());</span>
+<span class="fc" id="L453">        activityCandidate.setBirthDate(importedCandidate.getBirthDate());</span>
+<span class="fc" id="L454">        activityCandidate.setEducation(importedCandidate.getEducation());</span>
+<span class="fc" id="L455">        activityCandidate.setCompany(importedCandidate.getCompany());</span>
+<span class="fc" id="L456">        activityCandidate.setFirstLevelDepartment(importedCandidate.getFirstLevelDepartment());</span>
+<span class="fc" id="L457">        activityCandidate.setDepartment(importedCandidate.getDepartment());</span>
+<span class="fc" id="L458">        activityCandidate.setThirdLevelDepartment(importedCandidate.getThirdLevelDepartment());</span>
+<span class="fc" id="L459">        activityCandidate.setPosition(importedCandidate.getPosition());</span>
+<span class="fc" id="L460">        activityCandidate.setIdCard(importedCandidate.getIdCard());</span>
+<span class="fc" id="L461">        activityCandidate.setCurrentLevel(importedCandidate.getCurrentLevel());</span>
+<span class="fc" id="L462">        activityCandidate.setAppliedLevel(importedCandidate.getAppliedLevel());</span>
+<span class="fc" id="L463">        activityCandidate.setFixedType(null);</span>
+<span class="fc" id="L464">        activityCandidate.setLastYearAssessment(importedCandidate.getLastYearAssessment());</span>
+<span class="fc" id="L465">        activityCandidate.setEvaluationScore(importedCandidate.getEvaluationScore());</span>
+<span class="fc" id="L466">        activityCandidate.setCreateBy(username);</span>
+<span class="fc" id="L467">        return activityCandidate;</span>
+    }
+
+    private int nextPoolImportSeq(CandidateMapper candidateMapper)
+    {
+<span class="fc" id="L472">        Integer maxImportSeq = candidateMapper.selectMaxImportSeq();</span>
+<span class="pc bpc" id="L473" title="1 of 2 branches missed.">        return (maxImportSeq == null ? 0 : maxImportSeq) + 1;</span>
+    }
+
+    private void assignPoolSequence(Candidate candidate, int[] nextPoolImportSeq)
+    {
+<span class="fc" id="L478">        int importSeq = nextPoolImportSeq[0]++;</span>
+<span class="fc" id="L479">        candidate.setImportSeq(importSeq);</span>
+<span class="fc" id="L480">    }</span>
+
+    private String buildThirdLevelDepartment(String department, String currentLevel)
+    {
+<span class="fc" id="L484">        String dept = StringUtils.defaultString(department);</span>
+<span class="fc" id="L485">        String level = StringUtils.defaultString(currentLevel);</span>
+<span class="pc bpc" id="L486" title="3 of 4 branches missed.">        if (StringUtils.isEmpty(dept) &amp;&amp; StringUtils.isEmpty(level))</span>
+        {
+<span class="nc" id="L488">            return null;</span>
+        }
+<span class="fc" id="L490">        return dept + &quot;(&quot; + level + &quot;)&quot;;</span>
+    }
+
+    private boolean isSortedCandidateSheet(Sheet sheet, String title)
+    {
+<span class="fc" id="L495">        String sheetName = StringUtils.defaultString(sheet.getSheetName());</span>
+<span class="fc" id="L496">        String titleText = StringUtils.defaultString(title);</span>
+<span class="pc bpc" id="L497" title="2 of 4 branches missed.">        return sheetName.contains(&quot;排序&quot;) || titleText.contains(&quot;统分表&quot;);</span>
+    }
+
+    private boolean isSortedCandidateFile(String fileName)
+    {
+<span class="fc" id="L502">        return StringUtils.defaultString(fileName).contains(&quot;排序&quot;);</span>
+    }
+
+    private boolean isInstructionSheet(Sheet sheet)
+    {
+<span class="pc bpc" id="L507" title="1 of 2 branches missed.">        String sheetName = normalize(sheet == null ? null : sheet.getSheetName()).toLowerCase(Locale.ROOT);</span>
+<span class="pc bpc" id="L508" title="1 of 2 branches missed.">        return sheetName.contains(&quot;说明&quot;)</span>
+<span class="pc bpc" id="L509" title="1 of 2 branches missed.">                || sheetName.contains(&quot;填报说明&quot;)</span>
+<span class="pc bpc" id="L510" title="1 of 2 branches missed.">                || sheetName.contains(&quot;导入说明&quot;)</span>
+<span class="pc bpc" id="L511" title="1 of 2 branches missed.">                || sheetName.contains(&quot;模板说明&quot;)</span>
+<span class="pc bpc" id="L512" title="1 of 2 branches missed.">                || sheetName.contains(&quot;readme&quot;);</span>
+    }
+
+    private String sheetTitle(Sheet sheet, int headerRowIndex)
+    {
+<span class="pc bpc" id="L517" title="1 of 2 branches missed.">        for (int rowIndex = Math.max(sheet.getFirstRowNum(), headerRowIndex - 3); rowIndex &lt; headerRowIndex; rowIndex++)</span>
+        {
+<span class="nc" id="L519">            Row row = sheet.getRow(rowIndex);</span>
+<span class="nc bnc" id="L520" title="All 2 branches missed.">            if (row == null)</span>
+            {
+<span class="nc" id="L522">                continue;</span>
+            }
+<span class="nc" id="L524">            int lastCell = Math.min(Math.max(row.getLastCellNum(), 0), MAX_SCAN_COLUMNS);</span>
+<span class="nc bnc" id="L525" title="All 2 branches missed.">            for (int cellIndex = 0; cellIndex &lt; lastCell; cellIndex++)</span>
+            {
+<span class="nc" id="L527">                String text = getCellText(row.getCell(cellIndex));</span>
+<span class="nc bnc" id="L528" title="All 2 branches missed.">                if (StringUtils.isNotEmpty(text))</span>
+                {
+<span class="nc" id="L530">                    return text;</span>
+                }
+            }
+        }
+<span class="fc" id="L534">        return sheet.getSheetName();</span>
+    }
+
+    private String resolveGroupName(String fileName, String title, String sheetName)
+    {
+<span class="fc" id="L539">        String text = normalizeGroupSource(fileName) + &quot; &quot; + normalizeGroupSource(title) + &quot; &quot; + normalizeGroupSource(sheetName);</span>
+<span class="pc bpc" id="L540" title="2 of 4 branches missed.">        if (text.contains(&quot;综合组&quot;) || text.contains(&quot;综合&quot;))</span>
+        {
+<span class="nc" id="L542">            return &quot;综合组&quot;;</span>
+        }
+<span class="pc bpc" id="L544" title="1 of 4 branches missed.">        if (text.contains(&quot;船体组&quot;) || text.contains(&quot;船体&quot;))</span>
+        {
+<span class="fc" id="L546">            return &quot;船体组&quot;;</span>
+        }
+<span class="pc bpc" id="L548" title="2 of 4 branches missed.">        if (text.contains(&quot;船机组&quot;) || text.contains(&quot;船机&quot;))</span>
+        {
+<span class="nc" id="L550">            return &quot;船机组&quot;;</span>
+        }
+<span class="pc bpc" id="L552" title="2 of 4 branches missed.">        if (text.contains(&quot;船电组&quot;) || text.contains(&quot;船电&quot;))</span>
+        {
+<span class="nc" id="L554">            return &quot;船电组&quot;;</span>
+        }
+<span class="fc" id="L556">        return null;</span>
+    }
+
+    private String normalizeGroupSource(String value)
+    {
+<span class="fc" id="L561">        String text = StringUtils.defaultString(value);</span>
+<span class="pc bpc" id="L562" title="1 of 2 branches missed.">        while (text.contains(&quot;组组&quot;))</span>
+        {
+<span class="nc" id="L564">            text = text.replace(&quot;组组&quot;, &quot;组&quot;);</span>
+        }
+<span class="fc" id="L566">        return text;</span>
+    }
+
+    private void parseSortedCandidateSheet(Sheet sheet, String fileName, ImportPreviewResult result)
+    {
+<span class="pc bpc" id="L571" title="1 of 2 branches missed.">        if (isInstructionSheet(sheet))</span>
+        {
+<span class="nc" id="L573">            return;</span>
+        }
+<span class="fc" id="L575">        SheetPreview preview = new SheetPreview();</span>
+<span class="fc" id="L576">        preview.setSheetName(sheet.getSheetName());</span>
+<span class="fc" id="L577">        result.getSheets().add(preview);</span>
+
+<span class="fc" id="L579">        int headerRowIndex = findSortedCandidateHeaderRow(sheet);</span>
+<span class="fc" id="L580">        boolean sortedSheet = false;</span>
+<span class="pc bpc" id="L581" title="1 of 2 branches missed.">        if (headerRowIndex &lt; 0)</span>
+        {
+<span class="nc" id="L583">            headerRowIndex = findCandidateHeaderRow(sheet);</span>
+        }
+        else
+        {
+<span class="fc" id="L587">            String sortedTitle = sheetTitle(sheet, headerRowIndex);</span>
+<span class="pc bpc" id="L588" title="2 of 4 branches missed.">            sortedSheet = isSortedCandidateSheet(sheet, sortedTitle) || isSortedCandidateFile(fileName);</span>
+<span class="pc bpc" id="L589" title="3 of 4 branches missed.">            if (!sortedSheet &amp;&amp; parseAppliedLevel(sheet.getSheetName()) == null)</span>
+            {
+<span class="nc" id="L591">                headerRowIndex = findCandidateHeaderRow(sheet);</span>
+            }
+        }
+<span class="pc bpc" id="L594" title="1 of 2 branches missed.">        if (headerRowIndex &lt; 0)</span>
+        {
+<span class="nc" id="L596">            return;</span>
+        }
+<span class="fc" id="L598">        String title = sheetTitle(sheet, headerRowIndex);</span>
+<span class="pc bpc" id="L599" title="5 of 6 branches missed.">        sortedSheet = sortedSheet || isSortedCandidateSheet(sheet, title) || isSortedCandidateFile(fileName);</span>
+<span class="fc" id="L600">        String sheetAppliedLevel = parseAppliedLevel(sheet.getSheetName());</span>
+<span class="pc bpc" id="L601" title="3 of 4 branches missed.">        if (!sortedSheet &amp;&amp; StringUtils.isEmpty(sheetAppliedLevel))</span>
+        {
+<span class="nc" id="L603">            return;</span>
+        }
+<span class="pc bpc" id="L605" title="1 of 2 branches missed.">        String groupName = sortedSheet</span>
+<span class="fc" id="L606">                ? resolveGroupName(fileName, null, null)</span>
+<span class="pc" id="L607">                : resolveGroupName(fileName, title, sheet.getSheetName());</span>
+<span class="pc bpc" id="L608" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(groupName))</span>
+        {
+<span class="nc" id="L610">            result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, &quot;department&quot;,</span>
+                    &quot;Cannot identify candidate group from file name or sheet title; skipped&quot;));
+<span class="nc" id="L612">            return;</span>
+        }
+
+<span class="fc" id="L615">        List&lt;String&gt; headers = readHeaders(sheet.getRow(headerRowIndex));</span>
+<span class="fc" id="L616">        preview.setHeaderRowNo(headerRowIndex + 1);</span>
+<span class="fc" id="L617">        preview.setHeaders(headers);</span>
+<span class="fc" id="L618">        int lastRow = Math.min(sheet.getLastRowNum(), headerRowIndex + MAX_SCAN_ROWS_PER_SHEET);</span>
+<span class="fc bfc" id="L619" title="All 2 branches covered.">        for (int rowIndex = headerRowIndex + 1; rowIndex &lt;= lastRow; rowIndex++)</span>
+        {
+<span class="fc" id="L621">            Row row = sheet.getRow(rowIndex);</span>
+<span class="pc bpc" id="L622" title="1 of 2 branches missed.">            if (isRowEmpty(row, headers.size()))</span>
+            {
+<span class="nc" id="L624">                continue;</span>
+            }
+<span class="fc" id="L626">            Map&lt;String, String&gt; values = rowValues(row, headers);</span>
+<span class="pc bpc" id="L627" title="3 of 4 branches missed.">            if (!sortedSheet &amp;&amp; isCandidateIdentityBlank(values))</span>
+            {
+<span class="nc" id="L629">                continue;</span>
+            }
+<span class="fc" id="L631">            result.setTotalRows(result.getTotalRows() + 1);</span>
+<span class="pc bpc" id="L632" title="1 of 2 branches missed.">            if (preview.getRows().size() &gt;= MAX_PREVIEW_ROWS_PER_SHEET)</span>
+            {
+<span class="nc" id="L634">                continue;</span>
+            }
+<span class="fc" id="L636">            values.put(&quot;_rowNo&quot;, String.valueOf(rowIndex + 1));</span>
+<span class="fc" id="L637">            values.put(&quot;_group&quot;, groupName);</span>
+<span class="pc bpc" id="L638" title="1 of 2 branches missed.">            if (StringUtils.isNotEmpty(sheetAppliedLevel))</span>
+            {
+<span class="nc" id="L640">                values.put(&quot;_sheetAppliedLevel&quot;, sheetAppliedLevel);</span>
+            }
+<span class="fc" id="L642">            preview.getRows().add(values);</span>
+<span class="fc" id="L643">            result.setPreviewRows(result.getPreviewRows() + 1);</span>
+        }
+<span class="fc" id="L645">    }</span>
+
+    public ImportPreviewResult importVoters(Long activityId, MultipartFile file, String username, VoterMapper voterMapper, ActivityVoterMapper activityVoterMapper) throws Exception
+    {
+<span class="fc" id="L649">        Set&lt;String&gt; seenKeys = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L650">        int[] nextPoolImportSeq = new int[] { nextVoterPoolImportSeq(voterMapper) };</span>
+<span class="fc" id="L651">        return importRows(activityId, file, IMPORT_TYPE_VOTER, username, (headers, values, rowNo, result) -&gt; {</span>
+<span class="fc" id="L652">            Voter voter = new Voter();</span>
+<span class="fc" id="L653">            voter.setName(valueOf(values, &quot;\u59d3\u540d&quot;, &quot;\u8bc4\u59d4\u59d3\u540d&quot;, &quot;\u540d\u79f0&quot;, &quot;name&quot;));</span>
+<span class="fc" id="L654">            voter.setEmployeeId(valueOf(values, &quot;\u5de5\u53f7&quot;, &quot;\u5458\u5de5\u7f16\u53f7&quot;, &quot;\u804c\u5de5\u53f7&quot;, &quot;employeeId&quot;));</span>
+<span class="fc" id="L655">            voter.setDepartment(valueOf(values, &quot;\u90e8\u95e8&quot;, &quot;\u5355\u4f4d&quot;, &quot;\u6240\u5728\u90e8\u95e8&quot;, &quot;department&quot;));</span>
+<span class="fc" id="L656">            voter.setRemark(valueOf(values, &quot;\u5907\u6ce8&quot;, &quot;remark&quot;));</span>
+<span class="fc" id="L657">            voter.setCreateBy(username);</span>
+<span class="pc bpc" id="L658" title="1 of 2 branches missed.">            if (StringUtils.isEmpty(voter.getName()))</span>
+            {
+<span class="nc" id="L660">                result.getErrors().add(new ImportError(null, rowNo, &quot;name&quot;, &quot;Voter name is empty; skipped&quot;));</span>
+<span class="nc" id="L661">                return false;</span>
+            }
+<span class="pc bpc" id="L663" title="1 of 2 branches missed.">            String dedupeKey = StringUtils.isNotEmpty(voter.getEmployeeId()) ? voter.getEmployeeId() : voter.getName() + &quot;|&quot; + StringUtils.defaultString(voter.getDepartment());</span>
+<span class="fc bfc" id="L664" title="All 2 branches covered.">            if (!seenKeys.add(dedupeKey))</span>
+            {
+<span class="fc" id="L666">                result.getErrors().add(new ImportError(null, rowNo, &quot;employeeId&quot;, &quot;Duplicate voter in uploaded file; skipped&quot;));</span>
+<span class="fc" id="L667">                return false;</span>
+            }
+<span class="fc bfc" id="L669" title="All 2 branches covered.">            if (activityId == null)</span>
+            {
+<span class="pc bpc" id="L671" title="1 of 2 branches missed.">                if (voterMapper.selectVoterByUniqueKey(voter) != null)</span>
+                {
+<span class="nc" id="L673">                    result.getErrors().add(new ImportError(null, rowNo, &quot;employeeId&quot;, &quot;Voter already exists in voter pool; skipped&quot;));</span>
+<span class="nc" id="L674">                    return false;</span>
+                }
+<span class="fc" id="L676">                assignVoterPoolSequence(voter, nextPoolImportSeq);</span>
+<span class="fc" id="L677">                voterMapper.insertVoter(voter);</span>
+<span class="fc" id="L678">                return true;</span>
+            }
+<span class="fc" id="L680">            Voter poolVoter = voterMapper.selectVoterByUniqueKey(voter);</span>
+<span class="pc bpc" id="L681" title="1 of 2 branches missed.">            if (poolVoter == null)</span>
+            {
+<span class="fc" id="L683">                assignVoterPoolSequence(voter, nextPoolImportSeq);</span>
+<span class="fc" id="L684">                voterMapper.insertVoter(voter);</span>
+<span class="fc" id="L685">                poolVoter = voter;</span>
+            }
+<span class="fc" id="L687">            ActivityVoter activityVoter = toActivityVoter(activityId, poolVoter, voter, &quot;EXCEL&quot;, username);</span>
+<span class="pc bpc" id="L688" title="1 of 2 branches missed.">            if (activityVoterMapper.selectActivityVoterByUniqueKey(activityVoter) != null)</span>
+            {
+<span class="nc" id="L690">                result.getErrors().add(new ImportError(null, rowNo, &quot;employeeId&quot;, &quot;Voter already exists in this activity; skipped&quot;));</span>
+<span class="nc" id="L691">                return false;</span>
+            }
+<span class="fc" id="L693">            activityVoterMapper.insertActivityVoter(activityVoter);</span>
+<span class="fc" id="L694">            return true;</span>
+        });
+    }
+    private ActivityVoter toActivityVoter(Long activityId, Voter poolVoter, Voter importedVoter, String sourceType, String username)
+    {
+<span class="fc" id="L699">        ActivityVoter activityVoter = new ActivityVoter();</span>
+<span class="fc" id="L700">        activityVoter.setActivityId(activityId);</span>
+<span class="pc bpc" id="L701" title="1 of 2 branches missed.">        activityVoter.setVoterId(poolVoter == null ? null : poolVoter.getId());</span>
+<span class="pc bpc" id="L702" title="1 of 2 branches missed.">        activityVoter.setImportSeq(poolVoter == null ? importedVoter.getImportSeq() : poolVoter.getImportSeq());</span>
+<span class="fc" id="L703">        activityVoter.setSourceType(sourceType);</span>
+<span class="fc" id="L704">        activityVoter.setName(importedVoter.getName());</span>
+<span class="fc" id="L705">        activityVoter.setEmployeeId(importedVoter.getEmployeeId());</span>
+<span class="fc" id="L706">        activityVoter.setDepartment(importedVoter.getDepartment());</span>
+<span class="fc" id="L707">        activityVoter.setStatus(&quot;PENDING&quot;);</span>
+<span class="fc" id="L708">        activityVoter.setVoteToken(UUID.randomUUID().toString().replace(&quot;-&quot;, &quot;&quot;));</span>
+<span class="fc" id="L709">        activityVoter.setRemark(importedVoter.getRemark());</span>
+<span class="fc" id="L710">        activityVoter.setCreateBy(username);</span>
+<span class="fc" id="L711">        return activityVoter;</span>
+    }
+
+    private int nextVoterPoolImportSeq(VoterMapper voterMapper)
+    {
+<span class="fc" id="L716">        Integer maxImportSeq = voterMapper.selectMaxImportSeq();</span>
+<span class="pc bpc" id="L717" title="1 of 2 branches missed.">        return (maxImportSeq == null ? 0 : maxImportSeq) + 1;</span>
+    }
+
+    private void assignVoterPoolSequence(Voter voter, int[] nextPoolImportSeq)
+    {
+<span class="pc bpc" id="L722" title="1 of 2 branches missed.">        if (voter.getImportSeq() == null)</span>
+        {
+<span class="fc" id="L724">            voter.setImportSeq(nextPoolImportSeq[0]++);</span>
+        }
+<span class="nc bnc" id="L726" title="All 2 branches missed.">        else if (voter.getImportSeq() &gt;= nextPoolImportSeq[0])</span>
+        {
+<span class="nc" id="L728">            nextPoolImportSeq[0] = voter.getImportSeq() + 1;</span>
+        }
+<span class="fc" id="L730">    }</span>
+    private ImportPreviewResult importRows(Long activityId, MultipartFile file, String importType, String username, RowImporter importer) throws Exception
+    {
+<span class="fc" id="L733">        validateExcelFile(file);</span>
+<span class="fc" id="L734">        ImportPreviewResult result = new ImportPreviewResult();</span>
+<span class="fc" id="L735">        result.setActivityId(activityId);</span>
+<span class="fc" id="L736">        result.setImportType(importType);</span>
+<span class="fc" id="L737">        result.setFileName(file.getOriginalFilename());</span>
+<span class="fc" id="L738">        int imported = 0;</span>
+<span class="fc" id="L739">        try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream))</span>
+        {
+<span class="fc" id="L741">            result.setSheetCount(workbook.getNumberOfSheets());</span>
+<span class="fc bfc" id="L742" title="All 2 branches covered.">            for (int i = 0; i &lt; workbook.getNumberOfSheets(); i++)</span>
+            {
+<span class="fc" id="L744">                Sheet sheet = workbook.getSheetAt(i);</span>
+<span class="fc" id="L745">                SheetPreview preview = new SheetPreview();</span>
+<span class="fc" id="L746">                preview.setSheetName(sheet.getSheetName());</span>
+<span class="fc" id="L747">                result.getSheets().add(preview);</span>
+<span class="fc" id="L748">                int headerRowIndex = findHeaderRow(sheet);</span>
+<span class="pc bpc" id="L749" title="1 of 2 branches missed.">                if (headerRowIndex &lt; 0)</span>
+                {
+<span class="nc" id="L751">                    result.getErrors().add(new ImportError(sheet.getSheetName(), null, null, &quot;No non-empty header row found&quot;));</span>
+<span class="nc" id="L752">                    continue;</span>
+                }
+<span class="fc" id="L754">                preview.setHeaderRowNo(headerRowIndex + 1);</span>
+<span class="fc" id="L755">                List&lt;String&gt; headers = readHeaders(sheet.getRow(headerRowIndex));</span>
+<span class="fc" id="L756">                preview.setHeaders(headers);</span>
+<span class="fc" id="L757">                int lastRow = Math.min(sheet.getLastRowNum(), headerRowIndex + MAX_SCAN_ROWS_PER_SHEET);</span>
+<span class="fc bfc" id="L758" title="All 2 branches covered.">                for (int rowIndex = headerRowIndex + 1; rowIndex &lt;= lastRow; rowIndex++)</span>
+                {
+<span class="fc" id="L760">                    Row row = sheet.getRow(rowIndex);</span>
+<span class="pc bpc" id="L761" title="1 of 2 branches missed.">                    if (isRowEmpty(row, headers.size()))</span>
+                    {
+<span class="nc" id="L763">                        continue;</span>
+                    }
+<span class="fc" id="L765">                    result.setTotalRows(result.getTotalRows() + 1);</span>
+<span class="fc" id="L766">                    Map&lt;String, String&gt; values = rowValues(row, headers);</span>
+<span class="pc bpc" id="L767" title="1 of 2 branches missed.">                    if (preview.getRows().size() &lt; MAX_PREVIEW_ROWS_PER_SHEET)</span>
+                    {
+<span class="fc" id="L769">                        Map&lt;String, String&gt; previewValues = new LinkedHashMap&lt;&gt;(values);</span>
+<span class="fc" id="L770">                        previewValues.put(&quot;_rowNo&quot;, String.valueOf(rowIndex + 1));</span>
+<span class="fc" id="L771">                        preview.getRows().add(previewValues);</span>
+<span class="fc" id="L772">                        result.setPreviewRows(result.getPreviewRows() + 1);</span>
+                    }
+<span class="fc bfc" id="L774" title="All 2 branches covered.">                    imported += importer.importRow(headers, values, rowIndex + 1, result) ? 1 : 0;</span>
+                }
+<span class="pc bpc" id="L776" title="1 of 2 branches missed.">                if (sheet.getLastRowNum() &gt; lastRow)</span>
+                {
+<span class="nc" id="L778">                    result.getErrors().add(new ImportError(sheet.getSheetName(), lastRow + 1, null, &quot;Rows after scan limit are not imported&quot;));</span>
+                }
+            }
+<span class="fc" id="L781">            result.setImportedRows(imported);</span>
+<span class="fc bfc" id="L782" title="All 2 branches covered.">            saveJob(activityId, importType, file.getOriginalFilename(), username, result.getErrors().isEmpty() ? &quot;SUCCESS&quot; : &quot;PARTIAL_SUCCESS&quot;, &quot;imported=&quot; + imported + errorSuffix(result));</span>
+<span class="fc" id="L783">            return result;</span>
+        }
+<span class="nc" id="L785">        catch (Exception e)</span>
+        {
+<span class="nc" id="L787">            saveJob(activityId, importType, file.getOriginalFilename(), username, &quot;FAILED&quot;, e.getMessage());</span>
+<span class="nc" id="L788">            throw e;</span>
+        }
+    }
+
+    private Map&lt;String, String&gt; rowValues(Row row, List&lt;String&gt; headers)
+    {
+<span class="fc" id="L794">        Map&lt;String, String&gt; values = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L795" title="All 2 branches covered.">        for (int col = 0; col &lt; headers.size(); col++)</span>
+        {
+<span class="fc" id="L797">            String header = normalize(headers.get(col));</span>
+<span class="pc bpc" id="L798" title="1 of 2 branches missed.">            if (StringUtils.isEmpty(header))</span>
+            {
+<span class="nc" id="L800">                header = &quot;COL_&quot; + (col + 1);</span>
+            }
+<span class="fc" id="L802">            values.put(header, getCellText(row.getCell(col)));</span>
+        }
+<span class="fc" id="L804">        return values;</span>
+    }
+
+    private void parseSheet(Sheet sheet, ImportPreviewResult result)
+    {
+<span class="fc" id="L809">        SheetPreview preview = new SheetPreview();</span>
+<span class="fc" id="L810">        preview.setSheetName(sheet.getSheetName());</span>
+<span class="fc" id="L811">        int headerRowIndex = findHeaderRow(sheet);</span>
+<span class="fc bfc" id="L812" title="All 2 branches covered.">        if (headerRowIndex &lt; 0)</span>
+        {
+<span class="fc" id="L814">            result.getErrors().add(new ImportError(sheet.getSheetName(), null, null, &quot;No non-empty header row found&quot;));</span>
+<span class="fc" id="L815">            result.getSheets().add(preview);</span>
+<span class="fc" id="L816">            return;</span>
+        }
+<span class="fc" id="L818">        preview.setHeaderRowNo(headerRowIndex + 1);</span>
+<span class="fc" id="L819">        List&lt;String&gt; headers = readHeaders(sheet.getRow(headerRowIndex));</span>
+<span class="fc" id="L820">        preview.setHeaders(headers);</span>
+<span class="pc bpc" id="L821" title="1 of 2 branches missed.">        if (headers.isEmpty())</span>
+        {
+<span class="nc" id="L823">            result.getErrors().add(new ImportError(sheet.getSheetName(), headerRowIndex + 1, null, &quot;Header row is empty&quot;));</span>
+<span class="nc" id="L824">            result.getSheets().add(preview);</span>
+<span class="nc" id="L825">            return;</span>
+        }
+<span class="fc" id="L827">        int lastRow = Math.min(sheet.getLastRowNum(), headerRowIndex + MAX_SCAN_ROWS_PER_SHEET);</span>
+<span class="fc bfc" id="L828" title="All 2 branches covered.">        for (int rowIndex = headerRowIndex + 1; rowIndex &lt;= lastRow; rowIndex++)</span>
+        {
+<span class="fc" id="L830">            Row row = sheet.getRow(rowIndex);</span>
+<span class="pc bpc" id="L831" title="1 of 2 branches missed.">            if (isRowEmpty(row, headers.size()))</span>
+            {
+<span class="nc" id="L833">                continue;</span>
+            }
+<span class="fc" id="L835">            result.setTotalRows(result.getTotalRows() + 1);</span>
+<span class="pc bpc" id="L836" title="1 of 2 branches missed.">            if (preview.getRows().size() &gt;= MAX_PREVIEW_ROWS_PER_SHEET)</span>
+            {
+<span class="nc" id="L838">                continue;</span>
+            }
+<span class="fc" id="L840">            Map&lt;String, String&gt; values = rowValues(row, headers);</span>
+<span class="fc" id="L841">            values.put(&quot;_rowNo&quot;, String.valueOf(rowIndex + 1));</span>
+<span class="fc" id="L842">            preview.getRows().add(values);</span>
+<span class="fc" id="L843">            result.setPreviewRows(result.getPreviewRows() + 1);</span>
+        }
+<span class="fc" id="L845">        result.getSheets().add(preview);</span>
+<span class="fc" id="L846">    }</span>
+
+    private void validateExcelFile(MultipartFile file)
+    {
+<span class="pc bpc" id="L850" title="1 of 4 branches missed.">        if (file == null || file.isEmpty())</span>
+        {
+<span class="fc" id="L852">            throw new ServiceException(&quot;Uploaded file is empty&quot;);</span>
+        }
+<span class="fc" id="L854">        String extension = FilenameUtils.getExtension(file.getOriginalFilename());</span>
+<span class="pc bpc" id="L855" title="1 of 4 branches missed.">        if (!&quot;xls&quot;.equalsIgnoreCase(extension) &amp;&amp; !&quot;xlsx&quot;.equalsIgnoreCase(extension))</span>
+        {
+<span class="fc" id="L857">            throw new ServiceException(&quot;Only .xls and .xlsx files are supported&quot;);</span>
+        }
+<span class="fc" id="L859">    }</span>
+
+    private int findHeaderRow(Sheet sheet)
+    {
+<span class="fc" id="L863">        int lastRow = Math.min(sheet.getLastRowNum(), MAX_SCAN_ROWS_PER_SHEET);</span>
+<span class="fc bfc" id="L864" title="All 2 branches covered.">        for (int i = sheet.getFirstRowNum(); i &lt;= lastRow; i++)</span>
+        {
+<span class="fc" id="L866">            Row row = sheet.getRow(i);</span>
+<span class="fc bfc" id="L867" title="All 2 branches covered.">            if (!isRowEmpty(row, MAX_SCAN_COLUMNS))</span>
+            {
+<span class="fc" id="L869">                return i;</span>
+            }
+        }
+<span class="fc" id="L872">        return -1;</span>
+    }
+
+    private int findSortedCandidateHeaderRow(Sheet sheet)
+    {
+<span class="fc" id="L877">        int lastRow = Math.min(sheet.getLastRowNum(), MAX_SCAN_ROWS_PER_SHEET);</span>
+<span class="fc bfc" id="L878" title="All 2 branches covered.">        for (int i = sheet.getFirstRowNum(); i &lt;= lastRow; i++)</span>
+        {
+<span class="fc" id="L880">            Row row = sheet.getRow(i);</span>
+<span class="fc bfc" id="L881" title="All 2 branches covered.">            if (isSortedCandidateHeader(readHeaders(row)))</span>
+            {
+<span class="fc" id="L883">                return i;</span>
+            }
+        }
+<span class="fc" id="L886">        return -1;</span>
+    }
+
+    private boolean isSortedCandidateHeader(List&lt;String&gt; headers)
+    {
+<span class="pc bpc" id="L891" title="2 of 4 branches missed.">        if (headers == null || headers.isEmpty())</span>
+        {
+<span class="nc" id="L893">            return false;</span>
+        }
+<span class="fc bfc" id="L895" title="All 2 branches covered.">        return hasAnyHeader(headers, &quot;排序&quot;, &quot;序号&quot;, &quot;排名&quot;, &quot;importSeq&quot;)</span>
+<span class="pc bpc" id="L896" title="1 of 2 branches missed.">                &amp;&amp; hasAnyHeader(headers, &quot;姓名&quot;, &quot;姓 名&quot;, &quot;名称&quot;, &quot;name&quot;)</span>
+<span class="pc bpc" id="L897" title="1 of 2 branches missed.">                &amp;&amp; hasAnyHeader(headers, &quot;身份证号&quot;, &quot;身份证号码&quot;, &quot;证件号码&quot;, &quot;idCard&quot;)</span>
+<span class="pc bpc" id="L898" title="1 of 2 branches missed.">                &amp;&amp; hasAnyHeader(headers, &quot;申报职称&quot;, &quot;申报等级&quot;, &quot;报名等级&quot;, &quot;职称&quot;, &quot;等级&quot;, &quot;appliedLevel&quot;, &quot;level&quot;);</span>
+    }
+
+    private int findCandidateHeaderRow(Sheet sheet)
+    {
+<span class="fc" id="L903">        int lastRow = Math.min(sheet.getLastRowNum(), MAX_SCAN_ROWS_PER_SHEET);</span>
+<span class="pc bpc" id="L904" title="1 of 2 branches missed.">        for (int i = sheet.getFirstRowNum(); i &lt;= lastRow; i++)</span>
+        {
+<span class="fc" id="L906">            Row row = sheet.getRow(i);</span>
+<span class="pc bpc" id="L907" title="1 of 2 branches missed.">            if (isCandidateHeader(readHeaders(row)))</span>
+            {
+<span class="fc" id="L909">                return i;</span>
+            }
+        }
+<span class="nc" id="L912">        return -1;</span>
+    }
+
+    private boolean isCandidateHeader(List&lt;String&gt; headers)
+    {
+<span class="pc bpc" id="L917" title="2 of 4 branches missed.">        if (headers == null || headers.isEmpty())</span>
+        {
+<span class="nc" id="L919">            return false;</span>
+        }
+<span class="pc bpc" id="L921" title="1 of 2 branches missed.">        return hasAnyHeader(headers, &quot;姓名&quot;, &quot;姓 名&quot;, &quot;名称&quot;, &quot;编号&quot;, &quot;人员编号&quot;, &quot;name&quot;)</span>
+<span class="pc bpc" id="L922" title="1 of 2 branches missed.">                &amp;&amp; hasAnyHeader(headers, &quot;身份证号&quot;, &quot;身份证号码&quot;, &quot;身份证件号&quot;, &quot;证件号码&quot;, &quot;证件号&quot;, &quot;idCard&quot;);</span>
+    }
+
+    private boolean hasAppliedLevelHeader(List&lt;String&gt; headers)
+    {
+<span class="fc" id="L927">        return hasAnyHeader(headers, &quot;申报职称&quot;, &quot;申报等级&quot;, &quot;报名等级&quot;, &quot;职称&quot;, &quot;等级&quot;, &quot;appliedLevel&quot;, &quot;level&quot;);</span>
+    }
+
+    private boolean hasDepartmentHeader(List&lt;String&gt; headers)
+    {
+<span class="fc" id="L932">        return hasAnyHeader(headers, &quot;评审专业&quot;, &quot;组别&quot;, &quot;申报组别&quot;, &quot;二级部门&quot;, &quot;二级组织&quot;, &quot;department&quot;);</span>
+    }
+
+    private boolean hasAnyHeader(List&lt;String&gt; headers, String... names)
+    {
+<span class="fc bfc" id="L937" title="All 2 branches covered.">        for (String header : headers)</span>
+        {
+<span class="fc" id="L939">            String normalizedHeader = normalize(header);</span>
+<span class="fc bfc" id="L940" title="All 2 branches covered.">            for (String name : names)</span>
+            {
+<span class="fc bfc" id="L942" title="All 2 branches covered.">                if (normalizedHeader.equals(normalize(name)))</span>
+                {
+<span class="fc" id="L944">                    return true;</span>
+                }
+            }
+<span class="fc" id="L947">        }</span>
+<span class="fc" id="L948">        return false;</span>
+    }
+
+    private List&lt;String&gt; readHeaders(Row row)
+    {
+<span class="fc" id="L953">        List&lt;String&gt; headers = new ArrayList&lt;&gt;();</span>
+<span class="pc bpc" id="L954" title="1 of 2 branches missed.">        if (row == null)</span>
+        {
+<span class="nc" id="L956">            return headers;</span>
+        }
+<span class="fc" id="L958">        int lastCell = Math.min(Math.max(row.getLastCellNum(), 0), MAX_SCAN_COLUMNS);</span>
+<span class="fc bfc" id="L959" title="All 2 branches covered.">        for (int i = 0; i &lt; lastCell; i++)</span>
+        {
+<span class="fc" id="L961">            headers.add(getCellText(row.getCell(i)));</span>
+        }
+<span class="pc bpc" id="L963" title="1 of 2 branches missed.">        for (int i = headers.size() - 1; i &gt;= 0; i--)</span>
+        {
+<span class="pc bpc" id="L965" title="1 of 2 branches missed.">            if (StringUtils.isNotEmpty(headers.get(i)))</span>
+            {
+<span class="fc" id="L967">                break;</span>
+            }
+<span class="nc" id="L969">            headers.remove(i);</span>
+        }
+<span class="fc" id="L971">        return headers;</span>
+    }
+
+    private boolean isRowEmpty(Row row, int columnLimit)
+    {
+<span class="pc bpc" id="L976" title="1 of 2 branches missed.">        if (row == null)</span>
+        {
+<span class="nc" id="L978">            return true;</span>
+        }
+<span class="fc" id="L980">        int lastCell = Math.min(Math.max(row.getLastCellNum(), 0), Math.max(columnLimit, 1));</span>
+<span class="fc bfc" id="L981" title="All 2 branches covered.">        for (int i = 0; i &lt; lastCell; i++)</span>
+        {
+<span class="fc bfc" id="L983" title="All 2 branches covered.">            if (StringUtils.isNotEmpty(getCellText(row.getCell(i))))</span>
+            {
+<span class="fc" id="L985">                return false;</span>
+            }
+        }
+<span class="fc" id="L988">        return true;</span>
+    }
+
+    private String getCellText(Cell cell)
+    {
+<span class="pc bpc" id="L993" title="1 of 2 branches missed.">        if (cell == null)</span>
+        {
+<span class="nc" id="L995">            return &quot;&quot;;</span>
+        }
+<span class="pc bpc" id="L997" title="1 of 2 branches missed.">        if (cell.getCellType() == CellType.STRING)</span>
+        {
+<span class="fc" id="L999">            return normalize(cell.getStringCellValue());</span>
+        }
+<span class="nc bnc" id="L1001" title="All 2 branches missed.">        if (cell.getCellType() == CellType.NUMERIC)</span>
+        {
+<span class="nc bnc" id="L1003" title="All 2 branches missed.">            if (DateUtil.isCellDateFormatted(cell))</span>
+            {
+<span class="nc" id="L1005">                return new SimpleDateFormat(&quot;yyyy-MM-dd&quot;).format(cell.getDateCellValue());</span>
+            }
+<span class="nc" id="L1007">            return new DecimalFormat(&quot;0.################&quot;).format(cell.getNumericCellValue());</span>
+        }
+<span class="nc bnc" id="L1009" title="All 2 branches missed.">        if (cell.getCellType() == CellType.BOOLEAN)</span>
+        {
+<span class="nc" id="L1011">            return String.valueOf(cell.getBooleanCellValue());</span>
+        }
+<span class="nc bnc" id="L1013" title="All 2 branches missed.">        if (cell.getCellType() == CellType.FORMULA)</span>
+        {
+            try
+            {
+<span class="nc" id="L1017">                return normalize(cell.getStringCellValue());</span>
+            }
+<span class="nc" id="L1019">            catch (IllegalStateException e)</span>
+            {
+<span class="nc" id="L1021">                return new DecimalFormat(&quot;0.################&quot;).format(cell.getNumericCellValue());</span>
+            }
+        }
+<span class="nc" id="L1024">        return &quot;&quot;;</span>
+    }
+
+    private String normalize(String value)
+    {
+<span class="pc bpc" id="L1029" title="1 of 2 branches missed.">        return value == null ? &quot;&quot; : value.replace('\u3000', ' ').trim();</span>
+    }
+
+    private String firstPresent(String... values)
+    {
+<span class="pc bpc" id="L1034" title="1 of 2 branches missed.">        if (values == null)</span>
+        {
+<span class="nc" id="L1036">            return null;</span>
+        }
+<span class="pc bpc" id="L1038" title="1 of 2 branches missed.">        for (String value : values)</span>
+        {
+<span class="fc bfc" id="L1040" title="All 2 branches covered.">            if (StringUtils.isNotEmpty(value))</span>
+            {
+<span class="fc" id="L1042">                return value;</span>
+            }
+        }
+<span class="nc" id="L1045">        return null;</span>
+    }
+
+    private String parseAppliedLevel(String text)
+    {
+<span class="fc" id="L1050">        return normalizeAppliedLevel(text);</span>
+    }
+
+    private String normalizeAppliedLevel(String value)
+    {
+<span class="fc" id="L1055">        return EvaluationTitleUtils.normalizeAppliedLevel(value);</span>
+    }
+
+    private String normalizeIdCard(String value)
+    {
+<span class="fc" id="L1060">        String normalized = normalize(value);</span>
+<span class="pc bpc" id="L1061" title="1 of 2 branches missed.">        return StringUtils.isEmpty(normalized) ? null : normalized.toUpperCase(Locale.ROOT);</span>
+    }
+
+    private String valueOf(Map&lt;String, String&gt; values, String... names)
+    {
+<span class="fc bfc" id="L1066" title="All 2 branches covered.">        for (String name : names)</span>
+        {
+<span class="fc" id="L1068">            String value = values.get(name);</span>
+<span class="fc bfc" id="L1069" title="All 2 branches covered.">            if (StringUtils.isNotEmpty(value))</span>
+            {
+<span class="fc" id="L1071">                return value;</span>
+            }
+        }
+<span class="fc" id="L1074">        return null;</span>
+    }
+
+    private Integer parseInteger(String value)
+    {
+<span class="fc bfc" id="L1079" title="All 2 branches covered.">        if (StringUtils.isEmpty(value))</span>
+        {
+<span class="fc" id="L1081">            return null;</span>
+        }
+        try
+        {
+<span class="fc" id="L1085">            return Integer.valueOf(value.split(&quot;\\.&quot;)[0]);</span>
+        }
+<span class="nc" id="L1087">        catch (Exception e)</span>
+        {
+<span class="nc" id="L1089">            return null;</span>
+        }
+    }
+
+    private Date parseDate(String value)
+    {
+<span class="pc bpc" id="L1095" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(value))</span>
+        {
+<span class="fc" id="L1097">            return null;</span>
+        }
+<span class="nc" id="L1099">        return DateUtils.parseDate(value);</span>
+    }
+
+    private String errorSuffix(ImportPreviewResult result)
+    {
+<span class="fc" id="L1104">        String message = buildErrorMessage(result);</span>
+<span class="fc bfc" id="L1105" title="All 2 branches covered.">        return StringUtils.isEmpty(message) ? &quot;&quot; : &quot;; &quot; + message;</span>
+    }
+
+    private void assertImportedCandidateRows(int imported, ImportPreviewResult result)
+    {
+<span class="fc bfc" id="L1110" title="All 2 branches covered.">        if (imported &gt; 0)</span>
+        {
+<span class="fc" id="L1112">            return;</span>
+        }
+<span class="pc bpc" id="L1114" title="1 of 2 branches missed.">        if (result.getErrors().isEmpty())</span>
+        {
+<span class="nc" id="L1116">            result.getErrors().add(new ImportError(null, null, null, NO_CANDIDATE_IMPORTED_MESSAGE));</span>
+        }
+<span class="fc" id="L1118">        throw new ServiceException(NO_CANDIDATE_IMPORTED_MESSAGE + errorSuffix(result));</span>
+    }
+
+    private interface RowImporter
+    {
+        boolean importRow(List&lt;String&gt; headers, Map&lt;String, String&gt; values, int rowNo, ImportPreviewResult result);
+    }
+
+    private void saveJob(Long activityId, String importType, String fileName, String username, String status, String errorMessage)
+    {
+<span class="fc" id="L1128">        ExportJob job = new ExportJob();</span>
+<span class="fc" id="L1129">        job.setActivityId(activityId);</span>
+<span class="fc" id="L1130">        job.setJobType(&quot;IMPORT&quot;);</span>
+<span class="fc" id="L1131">        job.setExportType(importType);</span>
+<span class="fc" id="L1132">        job.setStatus(status);</span>
+<span class="fc" id="L1133">        job.setFileName(fileName);</span>
+<span class="fc" id="L1134">        job.setGeneratedBy(username);</span>
+<span class="fc" id="L1135">        job.setErrorMessage(limitJobErrorMessage(errorMessage));</span>
+<span class="fc" id="L1136">        exportJobMapper.insertExportJob(job);</span>
+<span class="fc" id="L1137">    }</span>
+
+    private String buildErrorMessage(ImportPreviewResult result)
+    {
+<span class="fc bfc" id="L1141" title="All 2 branches covered.">        if (result.getErrors().isEmpty())</span>
+        {
+<span class="fc" id="L1143">            return null;</span>
+        }
+<span class="fc" id="L1145">        StringBuilder builder = new StringBuilder();</span>
+<span class="fc bfc" id="L1146" title="All 2 branches covered.">        for (ImportError error : result.getErrors())</span>
+        {
+<span class="pc bpc" id="L1148" title="1 of 2 branches missed.">            if (builder.length() &gt; 0)</span>
+            {
+<span class="nc" id="L1150">                builder.append(&quot;; &quot;);</span>
+            }
+<span class="fc" id="L1152">            StringBuilder item = new StringBuilder();</span>
+<span class="fc bfc" id="L1153" title="All 2 branches covered.">            if (StringUtils.isNotEmpty(error.getSheetName()))</span>
+            {
+<span class="fc" id="L1155">                item.append(error.getSheetName());</span>
+            }
+<span class="fc bfc" id="L1157" title="All 2 branches covered.">            if (error.getRowNo() != null)</span>
+            {
+<span class="pc bpc" id="L1159" title="1 of 2 branches missed.">                if (item.length() &gt; 0)</span>
+                {
+<span class="nc" id="L1161">                    item.append(&quot;:&quot;);</span>
+                }
+<span class="fc" id="L1163">                item.append(&quot;row &quot;).append(error.getRowNo());</span>
+            }
+<span class="fc bfc" id="L1165" title="All 2 branches covered.">            if (StringUtils.isNotEmpty(error.getField()))</span>
+            {
+<span class="fc" id="L1167">                item.append(&quot;[&quot;).append(error.getField()).append(&quot;]&quot;);</span>
+            }
+<span class="pc bpc" id="L1169" title="1 of 2 branches missed.">            if (item.length() &gt; 0)</span>
+            {
+<span class="fc" id="L1171">                item.append(&quot;: &quot;);</span>
+            }
+<span class="fc" id="L1173">            item.append(error.getReason());</span>
+<span class="fc" id="L1174">            builder.append(item);</span>
+<span class="pc bpc" id="L1175" title="1 of 2 branches missed.">            if (builder.length() &gt; MAX_JOB_ERROR_MESSAGE_LENGTH)</span>
+            {
+<span class="nc" id="L1177">                break;</span>
+            }
+<span class="fc" id="L1179">        }</span>
+<span class="fc" id="L1180">        return limitJobErrorMessage(builder.toString());</span>
+    }
+
+    private String limitJobErrorMessage(String message)
+    {
+<span class="fc bfc" id="L1185" title="All 2 branches covered.">        if (StringUtils.isEmpty(message))</span>
+        {
+<span class="fc" id="L1187">            return message;</span>
+        }
+<span class="pc bpc" id="L1189" title="1 of 2 branches missed.">        if (message.length() &lt;= MAX_JOB_ERROR_MESSAGE_LENGTH)</span>
+        {
+<span class="fc" id="L1191">            return message;</span>
+        }
+<span class="nc" id="L1193">        return message.substring(0, MAX_JOB_ERROR_MESSAGE_LENGTH - 20) + &quot;...[truncated]&quot;;</span>
+    }
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ImportPreviewResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.domain</a> &gt; <span class="el_source">ImportPreviewResult.java</span></div><h1>ImportPreviewResult.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.domain;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+<span class="fc" id="L7">public class ImportPreviewResult</span>
+{
+    private String fileName;
+    private Long activityId;
+    private String importType;
+    private int sheetCount;
+    private int totalRows;
+    private int previewRows;
+    private int importedRows;
+<span class="fc" id="L16">    private List&lt;SheetPreview&gt; sheets = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L17">    private List&lt;ImportError&gt; errors = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L19">    public String getFileName() { return fileName; }</span>
+<span class="fc" id="L20">    public void setFileName(String fileName) { this.fileName = fileName; }</span>
+<span class="nc" id="L21">    public Long getActivityId() { return activityId; }</span>
+<span class="fc" id="L22">    public void setActivityId(Long activityId) { this.activityId = activityId; }</span>
+<span class="nc" id="L23">    public String getImportType() { return importType; }</span>
+<span class="fc" id="L24">    public void setImportType(String importType) { this.importType = importType; }</span>
+<span class="fc" id="L25">    public int getSheetCount() { return sheetCount; }</span>
+<span class="fc" id="L26">    public void setSheetCount(int sheetCount) { this.sheetCount = sheetCount; }</span>
+<span class="fc" id="L27">    public int getTotalRows() { return totalRows; }</span>
+<span class="fc" id="L28">    public void setTotalRows(int totalRows) { this.totalRows = totalRows; }</span>
+<span class="fc" id="L29">    public int getPreviewRows() { return previewRows; }</span>
+<span class="fc" id="L30">    public void setPreviewRows(int previewRows) { this.previewRows = previewRows; }</span>
+<span class="fc" id="L31">    public int getImportedRows() { return importedRows; }</span>
+<span class="fc" id="L32">    public void setImportedRows(int importedRows) { this.importedRows = importedRows; }</span>
+<span class="fc" id="L33">    public List&lt;SheetPreview&gt; getSheets() { return sheets; }</span>
+<span class="nc" id="L34">    public void setSheets(List&lt;SheetPreview&gt; sheets) { this.sheets = sheets; }</span>
+<span class="fc" id="L35">    public List&lt;ImportError&gt; getErrors() { return errors; }</span>
+<span class="nc" id="L36">    public void setErrors(List&lt;ImportError&gt; errors) { this.errors = errors; }</span>
+
+<span class="fc" id="L38">    public static class SheetPreview</span>
+    {
+        private String sheetName;
+        private int headerRowNo;
+<span class="fc" id="L42">        private List&lt;String&gt; headers = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L43">        private List&lt;Map&lt;String, String&gt;&gt; rows = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L45">        public String getSheetName() { return sheetName; }</span>
+<span class="fc" id="L46">        public void setSheetName(String sheetName) { this.sheetName = sheetName; }</span>
+<span class="nc" id="L47">        public int getHeaderRowNo() { return headerRowNo; }</span>
+<span class="fc" id="L48">        public void setHeaderRowNo(int headerRowNo) { this.headerRowNo = headerRowNo; }</span>
+<span class="fc" id="L49">        public List&lt;String&gt; getHeaders() { return headers; }</span>
+<span class="fc" id="L50">        public void setHeaders(List&lt;String&gt; headers) { this.headers = headers; }</span>
+<span class="fc" id="L51">        public List&lt;Map&lt;String, String&gt;&gt; getRows() { return rows; }</span>
+<span class="nc" id="L52">        public void setRows(List&lt;Map&lt;String, String&gt;&gt; rows) { this.rows = rows; }</span>
+    }
+
+    public static class ImportError
+    {
+        private String sheetName;
+        private Integer rowNo;
+        private String field;
+        private String reason;
+
+<span class="nc" id="L62">        public ImportError() {}</span>
+
+        public ImportError(String sheetName, Integer rowNo, String field, String reason)
+<span class="fc" id="L65">        {</span>
+<span class="fc" id="L66">            this.sheetName = sheetName;</span>
+<span class="fc" id="L67">            this.rowNo = rowNo;</span>
+<span class="fc" id="L68">            this.field = field;</span>
+<span class="fc" id="L69">            this.reason = reason;</span>
+<span class="fc" id="L70">        }</span>
+
+<span class="fc" id="L72">        public String getSheetName() { return sheetName; }</span>
+<span class="nc" id="L73">        public void setSheetName(String sheetName) { this.sheetName = sheetName; }</span>
+<span class="fc" id="L74">        public Integer getRowNo() { return rowNo; }</span>
+<span class="nc" id="L75">        public void setRowNo(Integer rowNo) { this.rowNo = rowNo; }</span>
+<span class="fc" id="L76">        public String getField() { return field; }</span>
+<span class="nc" id="L77">        public void setField(String field) { this.field = field; }</span>
+<span class="fc" id="L78">        public String getReason() { return reason; }</span>
+<span class="nc" id="L79">        public void setReason(String reason) { this.reason = reason; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

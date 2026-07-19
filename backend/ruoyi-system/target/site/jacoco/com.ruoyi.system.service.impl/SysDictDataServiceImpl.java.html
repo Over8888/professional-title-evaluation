@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SysDictDataServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.system.service.impl</a> &gt; <span class="el_source">SysDictDataServiceImpl.java</span></div><h1>SysDictDataServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.system.service.impl;
+
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.ruoyi.common.core.domain.entity.SysDictData;
+import com.ruoyi.common.utils.DictUtils;
+import com.ruoyi.system.mapper.SysDictDataMapper;
+import com.ruoyi.system.service.ISysDictDataService;
+
+/**
+ * 字典 业务层处理
+ * 
+ * @author 职称评审系统项目组
+ */
+@Service
+<span class="nc" id="L17">public class SysDictDataServiceImpl implements ISysDictDataService</span>
+{
+    @Autowired
+    private SysDictDataMapper dictDataMapper;
+
+    /**
+     * 根据条件分页查询字典数据
+     * 
+     * @param dictData 字典数据信息
+     * @return 字典数据集合信息
+     */
+    @Override
+    public List&lt;SysDictData&gt; selectDictDataList(SysDictData dictData)
+    {
+<span class="nc" id="L31">        return dictDataMapper.selectDictDataList(dictData);</span>
+    }
+
+    /**
+     * 根据字典类型和字典键值查询字典数据信息
+     * 
+     * @param dictType 字典类型
+     * @param dictValue 字典键值
+     * @return 字典标签
+     */
+    @Override
+    public String selectDictLabel(String dictType, String dictValue)
+    {
+<span class="nc" id="L44">        return dictDataMapper.selectDictLabel(dictType, dictValue);</span>
+    }
+
+    /**
+     * 根据字典数据ID查询信息
+     * 
+     * @param dictCode 字典数据ID
+     * @return 字典数据
+     */
+    @Override
+    public SysDictData selectDictDataById(Long dictCode)
+    {
+<span class="nc" id="L56">        return dictDataMapper.selectDictDataById(dictCode);</span>
+    }
+
+    /**
+     * 批量删除字典数据信息
+     * 
+     * @param dictCodes 需要删除的字典数据ID
+     */
+    @Override
+    public void deleteDictDataByIds(Long[] dictCodes)
+    {
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        for (Long dictCode : dictCodes)</span>
+        {
+<span class="nc" id="L69">            SysDictData data = selectDictDataById(dictCode);</span>
+<span class="nc" id="L70">            dictDataMapper.deleteDictDataById(dictCode);</span>
+<span class="nc" id="L71">            List&lt;SysDictData&gt; dictDatas = dictDataMapper.selectDictDataByType(data.getDictType());</span>
+<span class="nc" id="L72">            DictUtils.setDictCache(data.getDictType(), dictDatas);</span>
+        }
+<span class="nc" id="L74">    }</span>
+
+    /**
+     * 新增保存字典数据信息
+     * 
+     * @param data 字典数据信息
+     * @return 结果
+     */
+    @Override
+    public int insertDictData(SysDictData data)
+    {
+<span class="nc" id="L85">        int row = dictDataMapper.insertDictData(data);</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (row &gt; 0)</span>
+        {
+<span class="nc" id="L88">            List&lt;SysDictData&gt; dictDatas = dictDataMapper.selectDictDataByType(data.getDictType());</span>
+<span class="nc" id="L89">            DictUtils.setDictCache(data.getDictType(), dictDatas);</span>
+        }
+<span class="nc" id="L91">        return row;</span>
+    }
+
+    /**
+     * 修改保存字典数据信息
+     * 
+     * @param data 字典数据信息
+     * @return 结果
+     */
+    @Override
+    public int updateDictData(SysDictData data)
+    {
+<span class="nc" id="L103">        int row = dictDataMapper.updateDictData(data);</span>
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (row &gt; 0)</span>
+        {
+<span class="nc" id="L106">            List&lt;SysDictData&gt; dictDatas = dictDataMapper.selectDictDataByType(data.getDictType());</span>
+<span class="nc" id="L107">            DictUtils.setDictCache(data.getDictType(), dictDatas);</span>
+        }
+<span class="nc" id="L109">        return row;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

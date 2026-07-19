@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FinalEvaluationServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.service.impl</a> &gt; <span class="el_source">FinalEvaluationServiceImpl.java</span></div><h1>FinalEvaluationServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.service.impl;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.evaluation.domain.Activity;
+import com.ruoyi.evaluation.domain.FinalEvaluation;
+import com.ruoyi.evaluation.domain.ResultAgg;
+import com.ruoyi.evaluation.mapper.ActivityMapper;
+import com.ruoyi.evaluation.mapper.FinalEvaluationMapper;
+import com.ruoyi.evaluation.mapper.ResultAggMapper;
+import com.ruoyi.evaluation.service.IFinalEvaluationService;
+
+@Service
+<span class="fc" id="L22">public class FinalEvaluationServiceImpl implements IFinalEvaluationService</span>
+{
+    private static final String STATUS_DRAFT = &quot;DRAFT&quot;;
+    private static final String STATUS_CONFIRMED = &quot;CONFIRMED&quot;;
+
+    @Autowired
+    private FinalEvaluationMapper finalEvaluationMapper;
+
+    @Autowired
+    private ResultAggMapper resultAggMapper;
+
+    @Autowired
+    private ActivityMapper activityMapper;
+
+    @Override
+    public List&lt;FinalEvaluation&gt; selectFinalEvaluationList(FinalEvaluation finalEvaluation)
+    {
+<span class="nc" id="L39">        return finalEvaluationMapper.selectFinalEvaluationList(finalEvaluation);</span>
+    }
+
+    @Override
+    public Map&lt;String, Object&gt; summary(Long activityId)
+    {
+<span class="fc" id="L45">        requireActivityId(activityId);</span>
+<span class="fc" id="L46">        FinalEvaluation query = new FinalEvaluation();</span>
+<span class="fc" id="L47">        query.setActivityId(activityId);</span>
+<span class="fc" id="L48">        List&lt;FinalEvaluation&gt; rows = finalEvaluationMapper.selectFinalEvaluationList(query);</span>
+<span class="fc" id="L49">        long pass = rows.stream().filter(row -&gt; &quot;PASS&quot;.equals(row.getFinalResult())).count();</span>
+<span class="fc" id="L50">        long reject = rows.stream().filter(row -&gt; &quot;REJECT&quot;.equals(row.getFinalResult())).count();</span>
+<span class="fc" id="L51">        long confirmed = rows.stream().filter(row -&gt; STATUS_CONFIRMED.equals(row.getConfirmStatus())).count();</span>
+<span class="fc" id="L52">        Map&lt;String, Object&gt; data = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L53">        data.put(&quot;activityId&quot;, activityId);</span>
+<span class="fc" id="L54">        data.put(&quot;total&quot;, rows.size());</span>
+<span class="fc" id="L55">        data.put(&quot;pass&quot;, pass);</span>
+<span class="fc" id="L56">        data.put(&quot;reject&quot;, reject);</span>
+<span class="fc" id="L57">        data.put(&quot;confirmed&quot;, confirmed);</span>
+<span class="fc" id="L58">        data.put(&quot;pending&quot;, rows.size() - confirmed);</span>
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">        data.put(&quot;ready&quot;, !rows.isEmpty());</span>
+<span class="fc" id="L60">        return data;</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int generateFromResult(Long activityId, String username, boolean replaceExisting)
+    {
+<span class="fc" id="L67">        Activity activity = requireActivityWithStatus(activityId, &quot;CALCULATED&quot;, &quot;FinalEvaluation can only be generated after calculation and before confirmation.&quot;);</span>
+<span class="fc" id="L68">        int existing = finalEvaluationMapper.countFinalEvaluationByActivityId(activityId);</span>
+<span class="pc bpc" id="L69" title="1 of 4 branches missed.">        if (existing &gt; 0 &amp;&amp; !replaceExisting)</span>
+        {
+<span class="fc" id="L71">            throw new ServiceException(&quot;FinalEvaluation already exists. Use replaceExisting=true to rebuild it.&quot;);</span>
+        }
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">        if (replaceExisting)</span>
+        {
+<span class="nc" id="L75">            finalEvaluationMapper.deleteFinalEvaluationByActivityId(activityId);</span>
+        }
+<span class="fc" id="L77">        ResultAgg query = new ResultAgg();</span>
+<span class="fc" id="L78">        query.setActivityId(activityId);</span>
+<span class="fc" id="L79">        List&lt;ResultAgg&gt; results = resultAggMapper.selectResultAggList(query);</span>
+<span class="pc bpc" id="L80" title="1 of 2 branches missed.">        if (results.isEmpty())</span>
+        {
+<span class="nc" id="L82">            throw new ServiceException(&quot;No calculated result rows found for FinalEvaluation.&quot;);</span>
+        }
+<span class="fc" id="L84">        int inserted = 0;</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        for (ResultAgg result : results)</span>
+        {
+<span class="fc" id="L87">            FinalEvaluation row = new FinalEvaluation();</span>
+<span class="fc" id="L88">            row.setActivityId(activityId);</span>
+<span class="fc" id="L89">            row.setActivityCandidateId(result.getActivityCandidateId());</span>
+<span class="fc" id="L90">            row.setResultAggId(result.getId());</span>
+<span class="fc" id="L91">            row.setFinalResult(result.getFinalResult());</span>
+<span class="fc" id="L92">            row.setConfirmStatus(STATUS_DRAFT);</span>
+<span class="fc" id="L93">            row.setSignatureStatus(&quot;PENDING&quot;);</span>
+<span class="fc" id="L94">            row.setCreateBy(username);</span>
+<span class="fc" id="L95">            inserted += finalEvaluationMapper.insertFinalEvaluation(row);</span>
+<span class="fc" id="L96">        }</span>
+<span class="fc" id="L97">        return inserted;</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int updateFinalEvaluation(FinalEvaluation finalEvaluation, String username)
+    {
+<span class="pc bpc" id="L104" title="2 of 4 branches missed.">        if (finalEvaluation == null || finalEvaluation.getId() == null)</span>
+        {
+<span class="nc" id="L106">            throw new ServiceException(&quot;FinalEvaluation ID is required.&quot;);</span>
+        }
+<span class="fc" id="L108">        FinalEvaluation existing = finalEvaluationMapper.selectFinalEvaluationById(finalEvaluation.getId());</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        if (existing == null)</span>
+        {
+<span class="nc" id="L111">            throw new ServiceException(&quot;FinalEvaluation does not exist.&quot;);</span>
+        }
+<span class="fc" id="L113">        requireActivityWithStatus(existing.getActivityId(), &quot;CALCULATED&quot;, &quot;FinalEvaluation can only be edited before confirmation.&quot;);</span>
+<span class="fc" id="L114">        validateFinalResult(finalEvaluation.getFinalResult());</span>
+<span class="fc" id="L115">        validateConfirmStatus(finalEvaluation.getConfirmStatus());</span>
+<span class="fc" id="L116">        finalEvaluation.setUpdateBy(username);</span>
+<span class="fc" id="L117">        return finalEvaluationMapper.updateFinalEvaluation(finalEvaluation);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int saveActivityFinalEvaluations(Long activityId, List&lt;FinalEvaluation&gt; evaluations, String signedBy,
+            String confirmRemark, String username)
+    {
+<span class="fc" id="L125">        requireActivityWithStatus(activityId, &quot;CALCULATED&quot;, &quot;FinalEvaluation can only be edited before confirmation.&quot;);</span>
+<span class="fc" id="L126">        FinalEvaluation query = new FinalEvaluation();</span>
+<span class="fc" id="L127">        query.setActivityId(activityId);</span>
+<span class="fc" id="L128">        List&lt;FinalEvaluation&gt; existingRows = finalEvaluationMapper.selectFinalEvaluationList(query);</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        if (existingRows.isEmpty())</span>
+        {
+<span class="nc" id="L131">            throw new ServiceException(&quot;Generate FinalEvaluation before saving.&quot;);</span>
+        }
+
+<span class="fc" id="L134">        Map&lt;Long, String&gt; calculatedResults = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L135">        ResultAgg resultQuery = new ResultAgg();</span>
+<span class="fc" id="L136">        resultQuery.setActivityId(activityId);</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        for (ResultAgg result : resultAggMapper.selectResultAggList(resultQuery))</span>
+        {
+<span class="fc" id="L139">            calculatedResults.put(result.getActivityCandidateId(), result.getFinalResult());</span>
+<span class="fc" id="L140">        }</span>
+
+<span class="fc" id="L142">        HashMap&lt;Long, FinalEvaluation&gt; changesById = new HashMap&lt;&gt;();</span>
+<span class="pc bpc" id="L143" title="1 of 2 branches missed.">        if (evaluations != null)</span>
+        {
+<span class="fc bfc" id="L145" title="All 2 branches covered.">            for (FinalEvaluation evaluation : evaluations)</span>
+            {
+<span class="pc bpc" id="L147" title="2 of 4 branches missed.">                if (evaluation != null &amp;&amp; evaluation.getId() != null)</span>
+                {
+<span class="fc" id="L149">                    validateFinalResult(evaluation.getFinalResult());</span>
+<span class="fc" id="L150">                    changesById.put(evaluation.getId(), evaluation);</span>
+                }
+<span class="fc" id="L152">            }</span>
+        }
+
+<span class="fc" id="L155">        int updated = 0;</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">        for (FinalEvaluation existing : existingRows)</span>
+        {
+<span class="fc" id="L158">            FinalEvaluation change = changesById.get(existing.getId());</span>
+<span class="fc" id="L159">            FinalEvaluation update = new FinalEvaluation();</span>
+<span class="fc" id="L160">            update.setId(existing.getId());</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">            update.setFinalResult(change == null ? StringUtils.defaultIfEmpty(existing.getFinalResult(),</span>
+<span class="fc" id="L162">                    calculatedResults.get(existing.getActivityCandidateId())) : change.getFinalResult());</span>
+<span class="fc" id="L163">            update.setConfirmStatus(STATUS_DRAFT);</span>
+<span class="fc" id="L164">            update.setSignedBy(signedBy);</span>
+<span class="fc" id="L165">            update.setConfirmRemark(confirmRemark);</span>
+<span class="pc bpc" id="L166" title="1 of 2 branches missed.">            update.setSignatureStatus(StringUtils.isEmpty(signedBy) ? &quot;PENDING&quot; : &quot;SIGNED&quot;);</span>
+<span class="fc" id="L167">            update.setUpdateBy(username);</span>
+<span class="fc" id="L168">            updated += finalEvaluationMapper.updateFinalEvaluation(update);</span>
+<span class="fc" id="L169">        }</span>
+<span class="fc" id="L170">        return updated;</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int confirmActivity(Long activityId, String username)
+    {
+<span class="fc" id="L177">        requireActivityWithStatus(activityId, &quot;CALCULATED&quot;, &quot;Only calculated activities can be confirmed.&quot;);</span>
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        if (finalEvaluationMapper.countFinalEvaluationByActivityId(activityId) == 0)</span>
+        {
+<span class="fc" id="L180">            throw new ServiceException(&quot;Generate FinalEvaluation before confirmation.&quot;);</span>
+        }
+<span class="fc" id="L182">        FinalEvaluation query = new FinalEvaluation();</span>
+<span class="fc" id="L183">        query.setActivityId(activityId);</span>
+<span class="fc" id="L184">        List&lt;FinalEvaluation&gt; rows = finalEvaluationMapper.selectFinalEvaluationList(query);</span>
+<span class="fc" id="L185">        Date now = new Date();</span>
+<span class="fc" id="L186">        int updated = 0;</span>
+<span class="fc bfc" id="L187" title="All 2 branches covered.">        for (FinalEvaluation row : rows)</span>
+        {
+<span class="fc" id="L189">            FinalEvaluation update = new FinalEvaluation();</span>
+<span class="fc" id="L190">            update.setId(row.getId());</span>
+<span class="fc" id="L191">            update.setConfirmStatus(STATUS_CONFIRMED);</span>
+<span class="fc" id="L192">            update.setConfirmedBy(username);</span>
+<span class="fc" id="L193">            update.setConfirmedAt(now);</span>
+<span class="fc bfc" id="L194" title="All 2 branches covered.">            update.setSignatureStatus(StringUtils.isEmpty(row.getSignedBy()) ? &quot;PENDING&quot; : &quot;SIGNED&quot;);</span>
+<span class="fc" id="L195">            update.setUpdateBy(username);</span>
+<span class="fc" id="L196">            updated += finalEvaluationMapper.updateFinalEvaluation(update);</span>
+<span class="fc" id="L197">        }</span>
+<span class="fc" id="L198">        Activity activity = new Activity();</span>
+<span class="fc" id="L199">        activity.setId(activityId);</span>
+<span class="fc" id="L200">        activity.setStatus(STATUS_CONFIRMED);</span>
+<span class="fc" id="L201">        activity.setUpdatedBy(username);</span>
+<span class="fc" id="L202">        activityMapper.updateActivity(activity);</span>
+<span class="fc" id="L203">        return updated;</span>
+    }
+
+    @Override
+    public int deleteFinalEvaluationByIds(Long[] ids)
+    {
+<span class="pc bpc" id="L209" title="1 of 2 branches missed.">        if (ids != null)</span>
+        {
+<span class="fc bfc" id="L211" title="All 2 branches covered.">            for (Long id : ids)</span>
+            {
+<span class="fc" id="L213">                FinalEvaluation row = finalEvaluationMapper.selectFinalEvaluationById(id);</span>
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">                if (row != null)</span>
+                {
+<span class="fc" id="L216">                    requireActivityWithStatus(row.getActivityId(), &quot;CALCULATED&quot;, &quot;FinalEvaluation can only be deleted before confirmation.&quot;);</span>
+                }
+            }
+        }
+<span class="fc" id="L220">        return finalEvaluationMapper.deleteFinalEvaluationByIds(ids);</span>
+    }
+
+    private void requireActivityId(Long activityId)
+    {
+<span class="pc bpc" id="L225" title="1 of 2 branches missed.">        if (activityId == null)</span>
+        {
+<span class="nc" id="L227">            throw new ServiceException(&quot;Activity ID is required.&quot;);</span>
+        }
+<span class="fc" id="L229">    }</span>
+
+    private Activity requireActivityWithStatus(Long activityId, String expectedStatus, String message)
+    {
+<span class="fc" id="L233">        requireActivityId(activityId);</span>
+<span class="fc" id="L234">        Activity activity = activityMapper.selectActivityById(activityId);</span>
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">        if (activity == null)</span>
+        {
+<span class="nc" id="L237">            throw new ServiceException(&quot;Activity does not exist.&quot;);</span>
+        }
+<span class="fc" id="L239">        String status = StringUtils.defaultIfEmpty(activity.getStatus(), &quot;&quot;);</span>
+<span class="fc bfc" id="L240" title="All 2 branches covered.">        if (!expectedStatus.equals(status))</span>
+        {
+<span class="fc" id="L242">            throw new ServiceException(message);</span>
+        }
+<span class="pc bpc" id="L244" title="1 of 2 branches missed.">        if (resultAggMapper.countResultAggByActivityId(activityId) == 0)</span>
+        {
+<span class="nc" id="L246">            throw new ServiceException(&quot;No calculated results found.&quot;);</span>
+        }
+<span class="fc" id="L248">        return activity;</span>
+    }
+
+    private void validateFinalResult(String finalResult)
+    {
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(finalResult))</span>
+        {
+<span class="nc" id="L255">            return;</span>
+        }
+<span class="fc bfc" id="L257" title="All 4 branches covered.">        if (!&quot;PASS&quot;.equals(finalResult) &amp;&amp; !&quot;REJECT&quot;.equals(finalResult))</span>
+        {
+<span class="fc" id="L259">            throw new ServiceException(&quot;Final result must be PASS or REJECT.&quot;);</span>
+        }
+<span class="fc" id="L261">    }</span>
+
+    private void validateConfirmStatus(String confirmStatus)
+    {
+<span class="pc bpc" id="L265" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(confirmStatus))</span>
+        {
+<span class="nc" id="L267">            return;</span>
+        }
+<span class="pc bpc" id="L269" title="1 of 4 branches missed.">        if (!STATUS_DRAFT.equals(confirmStatus) &amp;&amp; !STATUS_CONFIRMED.equals(confirmStatus))</span>
+        {
+<span class="fc" id="L271">            throw new ServiceException(&quot;Confirm status must be DRAFT or CONFIRMED.&quot;);</span>
+        }
+<span class="fc" id="L273">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

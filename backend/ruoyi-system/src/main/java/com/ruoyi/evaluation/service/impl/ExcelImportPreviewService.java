@@ -39,6 +39,7 @@ import com.ruoyi.evaluation.mapper.ActivityVoterMapper;
 import com.ruoyi.evaluation.mapper.CandidateMapper;
 import com.ruoyi.evaluation.mapper.ExportJobMapper;
 import com.ruoyi.evaluation.mapper.VoterMapper;
+import com.ruoyi.evaluation.support.EvaluationTitleUtils;
 
 @Service
 public class ExcelImportPreviewService
@@ -1051,28 +1052,7 @@ public class ExcelImportPreviewService
 
     private String normalizeAppliedLevel(String value)
     {
-        String text = normalize(value);
-        if (StringUtils.isEmpty(text))
-        {
-            return null;
-        }
-        if (text.contains("高级工程师") || text.contains("副高级") || text.contains("副高") || text.contains("高级"))
-        {
-            return "高级工程师";
-        }
-        if (text.contains("助理工程师") || text.contains("助理级") || text.contains("助理") || text.contains("初级"))
-        {
-            return "助理工程师";
-        }
-        if (text.contains("工程师") || text.contains("中级"))
-        {
-            return "工程师";
-        }
-        if (text.contains("技术员") || text.contains("员级"))
-        {
-            return "技术员";
-        }
-        return null;
+        return EvaluationTitleUtils.normalizeAppliedLevel(value);
     }
 
     private String normalizeIdCard(String value)

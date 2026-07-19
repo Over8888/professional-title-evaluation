@@ -11,10 +11,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.evaluation.domain.Activity;
 import com.ruoyi.evaluation.domain.ActivityCandidate;
 import com.ruoyi.evaluation.domain.Candidate;
 import com.ruoyi.evaluation.domain.ImportPreviewResult;
 import com.ruoyi.evaluation.mapper.ActivityCandidateMapper;
+import com.ruoyi.evaluation.mapper.ActivityMapper;
 import com.ruoyi.evaluation.mapper.CandidateMapper;
 import com.ruoyi.evaluation.service.ICandidateService;
 
@@ -26,6 +28,9 @@ public class CandidateServiceImpl implements ICandidateService
 
     @Autowired
     private ActivityCandidateMapper activityCandidateMapper;
+
+    @Autowired
+    private ActivityMapper activityMapper;
 
     @Autowired
     private ExcelImportPreviewService excelImportPreviewService;
@@ -95,7 +100,11 @@ public class CandidateServiceImpl implements ICandidateService
         return rows;
     }
     @Override
-    public int deleteCandidateByActivityId(Long activityId) { return activityCandidateMapper.deleteActivityCandidateByActivityId(activityId); }
+    public int deleteCandidateByActivityId(Long activityId)
+    {
+        requireConfigurableActivity(activityId);
+        return activityCandidateMapper.deleteActivityCandidateByActivityId(activityId);
+    }
 
     @Override
     public ImportPreviewResult previewImport(Long activityId, MultipartFile file, String username) throws Exception
@@ -111,6 +120,7 @@ public class CandidateServiceImpl implements ICandidateService
         {
             throw new ServiceException("活动候选人导入必须指定活动");
         }
+        requireConfigurableActivity(activityId);
         if (updateSupport)
         {
             activityCandidateMapper.deleteActivityCandidateByActivityId(activityId);
@@ -143,6 +153,7 @@ public class CandidateServiceImpl implements ICandidateService
         {
             throw new ServiceException("请选择活动");
         }
+        requireConfigurableActivity(activityId);
         if (CollectionUtils.isEmpty(ids))
         {
             throw new ServiceException("请选择候选人资料");
@@ -172,6 +183,7 @@ public class CandidateServiceImpl implements ICandidateService
         {
             throw new ServiceException("请选择源活动和目标活动");
         }
+        requireConfigurableActivity(activityId);
         if (activityId.equals(sourceActivityId))
         {
             throw new ServiceException("不能复制当前活动自身");
@@ -308,5 +320,19 @@ public class CandidateServiceImpl implements ICandidateService
             }
         }
         return activityCandidateMapper.insertActivityCandidate(snapshot);
+    }
+
+    private void requireConfigurableActivity(Long activityId)
+    {
+        Activity activity = activityMapper.selectActivityById(activityId);
+        if (activity == null)
+        {
+            throw new ServiceException("Activity does not exist.");
+        }
+        String status = activity.getStatus();
+        if (!StringUtils.isEmpty(status) && !"CONFIGURED".equals(status) && !"DRAFT".equals(status))
+        {
+            throw new ServiceException("Activity candidates can only be changed before publishing.");
+        }
     }
 }

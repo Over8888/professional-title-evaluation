@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.evaluation.mapper.CandidateMapper">
+    <resultMap type="Candidate" id="CandidateResult">
+        <id property="id" column="id" />
+        <result property="importSeq" column="import_seq" />
+        <result property="name" column="name" />
+        <result property="gender" column="gender" />
+        <result property="birthDate" column="birth_date" />
+        <result property="education" column="education" />
+        <result property="company" column="company" />
+        <result property="firstLevelDepartment" column="first_level_department" />
+        <result property="department" column="department" />
+        <result property="thirdLevelDepartment" column="third_level_department" />
+        <result property="position" column="position" />
+        <result property="idCard" column="id_card" />
+        <result property="currentLevel" column="current_level" />
+        <result property="appliedLevel" column="applied_level" />
+        <result property="lastYearAssessment" column="last_year_assessment" />
+        <result property="evaluationScore" column="evaluation_score" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="selectCandidateVo">
+        select id, import_seq, name, gender, birth_date, education, company, first_level_department, department,
+               third_level_department, position, id_card, current_level, applied_level,
+               last_year_assessment, evaluation_score, create_by, create_time, update_by, update_time
+        from Candidate
+    </sql>
+
+    <sql id="candidateFilters">
+        <where>
+            <if test="name != null and name != ''">and name like concat('%', #{name}, '%')</if>
+            <if test="company != null and company != ''">and company = #{company}</if>
+            <if test="firstLevelDepartment != null and firstLevelDepartment != ''">and first_level_department = #{firstLevelDepartment}</if>
+            <if test="department != null and department != ''">and department = #{department}</if>
+            <if test="thirdLevelDepartment != null and thirdLevelDepartment != ''">and third_level_department = #{thirdLevelDepartment}</if>
+            <if test="position != null and position != ''">and position = #{position}</if>
+            <if test="currentLevel != null and currentLevel != ''">and current_level = #{currentLevel}</if>
+            <if test="appliedLevel != null and appliedLevel != ''">and applied_level = #{appliedLevel}</if>
+        </where>
+    </sql>
+
+    <select id="selectCandidateList" parameterType="Candidate" resultMap="CandidateResult">
+        <include refid="selectCandidateVo"/>
+        <include refid="candidateFilters"/>
+        order by case department
+                   when '船体组' then 1
+                   when '船机组' then 2
+                   when '船电组' then 3
+                   when '综合组' then 4
+                   else 99
+                 end asc,
+                 department asc,
+                 case applied_level
+                   when '正高级' then 1
+                   when '正高级工程师' then 1
+                   when '副高级' then 2
+                   when '高级工程师' then 2
+                   when '中级' then 3
+                   when '工程师' then 3
+                   when '初级' then 4
+                   when '助理工程师' then 4
+                   when '员级' then 5
+                   when '技术员' then 5
+                   else 99
+                 end asc,
+                 applied_level asc,
+                 import_seq asc,
+                 id asc
+    </select>
+
+    <select id="selectCandidateById" parameterType="Long" resultMap="CandidateResult">
+        <include refid="selectCandidateVo"/> where id = #{id}
+    </select>
+
+    <select id="selectCandidateByIdCard" resultMap="CandidateResult">
+        <include refid="selectCandidateVo"/>
+        where id_card = #{idCard}
+        limit 1
+    </select>
+
+    <select id="selectCandidateByActivityIdAndIdCard" parameterType="Candidate" resultMap="CandidateResult">
+        <include refid="selectCandidateVo"/>
+        <where>
+            <if test="idCard != null and idCard != ''">and id_card = #{idCard}</if>
+        </where>
+        limit 1
+    </select>
+
+    <select id="selectCandidateOptionValues" resultType="string">
+        select distinct
+        <choose>
+            <when test="column == 'company'">company</when>
+            <when test="column == 'department'">department</when>
+            <when test="column == 'thirdLevelDepartment'">third_level_department</when>
+            <when test="column == 'position'">position</when>
+            <when test="column == 'currentLevel'">current_level</when>
+            <when test="column == 'appliedLevel'">applied_level</when>
+            <otherwise>company</otherwise>
+        </choose>
+        from Candidate
+        where
+        <choose>
+            <when test="column == 'company'">company</when>
+            <when test="column == 'department'">department</when>
+            <when test="column == 'thirdLevelDepartment'">third_level_department</when>
+            <when test="column == 'position'">position</when>
+            <when test="column == 'currentLevel'">current_level</when>
+            <when test="column == 'appliedLevel'">applied_level</when>
+            <otherwise>company</otherwise>
+        </choose>
+        is not null
+        and
+        <choose>
+            <when test="column == 'company'">company</when>
+            <when test="column == 'department'">department</when>
+            <when test="column == 'thirdLevelDepartment'">third_level_department</when>
+            <when test="column == 'position'">position</when>
+            <when test="column == 'currentLevel'">current_level</when>
+            <when test="column == 'appliedLevel'">applied_level</when>
+            <otherwise>company</otherwise>
+        </choose>
+        &lt;&gt; ''
+        order by 1 asc
+    </select>
+
+    <select id="selectMaxImportSeq" resultType="int">
+        select coalesce(max(import_seq), 0) from Candidate
+    </select>
+
+    <insert id="insertCandidate" parameterType="Candidate" useGeneratedKeys="true" keyProperty="id">
+        insert into Candidate(import_seq, name, gender, birth_date, education, company, first_level_department,
+                              department, third_level_department, position, id_card, current_level, applied_level,
+                              last_year_assessment, evaluation_score, create_by, create_time)
+        values(#{importSeq}, #{name}, #{gender}, #{birthDate}, #{education}, #{company}, #{firstLevelDepartment},
+               #{department}, #{thirdLevelDepartment}, #{position}, #{idCard}, #{currentLevel}, #{appliedLevel},
+               #{lastYearAssessment}, #{evaluationScore}, #{createBy}, sysdate())
+    </insert>
+
+    <update id="updateCandidate" parameterType="Candidate">
+        update Candidate
+        <set>
+            <if test="importSeq != null">import_seq = #{importSeq},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="gender != null">gender = #{gender},</if>
+            <if test="birthDate != null">birth_date = #{birthDate},</if>
+            <if test="education != null">education = #{education},</if>
+            <if test="company != null">company = #{company},</if>
+            <if test="firstLevelDepartment != null">first_level_department = #{firstLevelDepartment},</if>
+            <if test="department != null">department = #{department},</if>
+            <if test="thirdLevelDepartment != null">third_level_department = #{thirdLevelDepartment},</if>
+            <if test="position != null">position = #{position},</if>
+            <if test="idCard != null">id_card = #{idCard},</if>
+            <if test="currentLevel != null">current_level = #{currentLevel},</if>
+            <if test="appliedLevel != null">applied_level = #{appliedLevel},</if>
+            <if test="lastYearAssessment != null">last_year_assessment = #{lastYearAssessment},</if>
+            <if test="evaluationScore != null">evaluation_score = #{evaluationScore},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+
+    <update id="prepareCandidateImportSeqResequence">
+        update Candidate c
+        join (
+            select id, row_number() over (order by id asc) as new_seq
+            from Candidate
+        ) ranked on ranked.id = c.id
+        set c.import_seq = -ranked.new_seq,
+            c.update_time = sysdate()
+    </update>
+
+    <update id="finishCandidateImportSeqResequence">
+        update Candidate
+        set import_seq = -import_seq,
+            update_time = sysdate()
+        where import_seq &lt; 0
+    </update>
+
+    <delete id="deleteCandidateById" parameterType="Long">delete from Candidate where id = #{id}</delete>
+    <delete id="deleteCandidateByIds" parameterType="Long">delete from Candidate where id in <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach></delete>
+</mapper>

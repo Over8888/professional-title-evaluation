@@ -43,10 +43,25 @@ public class ResultController extends BaseController
     }
 
     @PreAuthorize("@ss.hasPermi('evaluation:result:list') or @ss.hasPermi('evaluation:activity:list')")
+    @GetMapping("/voteSummary/{activityId}")
+    public AjaxResult voteSummary(@PathVariable Long activityId)
+    {
+        return success(resultAggService.voteSummary(activityId));
+    }
+
+    @PreAuthorize("@ss.hasPermi('evaluation:result:list') or @ss.hasPermi('evaluation:activity:list')")
     @GetMapping("/list")
     public TableDataInfo list(ResultAgg resultAgg)
     {
         List<Map<String, Object>> list = resultAggService.selectResultAggList(resultAgg);
+        return getDataTable(list);
+    }
+
+    @PreAuthorize("@ss.hasPermi('evaluation:result:list') or @ss.hasPermi('evaluation:activity:list')")
+    @GetMapping("/candidateList")
+    public TableDataInfo candidateList(ResultAgg resultAgg)
+    {
+        List<ResultAgg> list = resultAggService.selectCandidateResultList(resultAgg);
         return getDataTable(list);
     }
 

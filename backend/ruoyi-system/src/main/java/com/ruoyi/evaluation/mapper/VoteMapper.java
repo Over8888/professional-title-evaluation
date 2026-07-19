@@ -9,5 +9,6 @@ public interface VoteMapper
     int batchInsertVote(List<Vote> votes);
     int countByActivityVoter(Vote vote);
     List<Vote> selectVoteSummaryByActivityId(Long activityId);
+    List<Vote> selectVoteDetailByActivityId(Long activityId);
     int deleteVoteByActivityId(Long activityId);
 }

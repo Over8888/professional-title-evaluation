@@ -1,0 +1,619 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SysMenuServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.system.service.impl</a> &gt; <span class="el_source">SysMenuServiceImpl.java</span></div><h1>SysMenuServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.system.service.impl;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.common.constant.Constants;
+import com.ruoyi.common.constant.UserConstants;
+import com.ruoyi.common.core.domain.TreeSelect;
+import com.ruoyi.common.core.domain.entity.SysMenu;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.core.text.Convert;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.system.domain.vo.MetaVo;
+import com.ruoyi.system.domain.vo.RouterVo;
+import com.ruoyi.system.mapper.SysMenuMapper;
+import com.ruoyi.system.mapper.SysRoleMapper;
+import com.ruoyi.system.mapper.SysRoleMenuMapper;
+import com.ruoyi.system.service.ISysMenuService;
+
+/**
+ * 菜单 业务层处理
+ * 
+ * @author 职称评审系统项目组
+ */
+@Service
+<span class="nc" id="L38">public class SysMenuServiceImpl implements ISysMenuService</span>
+{
+<span class="nc" id="L40">    private static final Logger log = LoggerFactory.getLogger(SysMenuServiceImpl.class);</span>
+
+    public static final String PREMISSION_STRING = &quot;perms[\&quot;{0}\&quot;]&quot;;
+
+<span class="nc" id="L44">    public static final Long MENU_ROOT_ID = 0L;</span>
+
+    @Autowired
+    private SysMenuMapper menuMapper;
+
+    @Autowired
+    private SysRoleMapper roleMapper;
+
+    @Autowired
+    private SysRoleMenuMapper roleMenuMapper;
+
+    /**
+     * 根据用户查询系统菜单列表
+     * 
+     * @param userId 用户ID
+     * @return 菜单列表
+     */
+    @Override
+    public List&lt;SysMenu&gt; selectMenuList(Long userId)
+    {
+<span class="nc" id="L64">        return selectMenuList(new SysMenu(), userId);</span>
+    }
+
+    /**
+     * 查询系统菜单列表
+     * 
+     * @param menu 菜单信息
+     * @return 菜单列表
+     */
+    @Override
+    public List&lt;SysMenu&gt; selectMenuList(SysMenu menu, Long userId)
+    {
+<span class="nc" id="L76">        List&lt;SysMenu&gt; menuList = null;</span>
+        // 管理员显示所有菜单信息
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        if (SecurityUtils.isAdmin(userId))</span>
+        {
+<span class="nc" id="L80">            menuList = menuMapper.selectMenuList(menu);</span>
+        }
+        else
+        {
+<span class="nc" id="L84">            menu.getParams().put(&quot;userId&quot;, userId);</span>
+<span class="nc" id="L85">            menuList = menuMapper.selectMenuListByUserId(menu);</span>
+        }
+<span class="nc" id="L87">        return menuList;</span>
+    }
+
+    /**
+     * 根据用户ID查询权限
+     * 
+     * @param userId 用户ID
+     * @return 权限列表
+     */
+    @Override
+    public Set&lt;String&gt; selectMenuPermsByUserId(Long userId)
+    {
+<span class="nc" id="L99">        List&lt;String&gt; perms = menuMapper.selectMenuPermsByUserId(userId);</span>
+<span class="nc" id="L100">        Set&lt;String&gt; permsSet = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L101" title="All 2 branches missed.">        for (String perm : perms)</span>
+        {
+<span class="nc bnc" id="L103" title="All 2 branches missed.">            if (StringUtils.isNotEmpty(perm))</span>
+            {
+<span class="nc" id="L105">                permsSet.addAll(Arrays.asList(perm.trim().split(&quot;,&quot;)));</span>
+            }
+<span class="nc" id="L107">        }</span>
+<span class="nc" id="L108">        return permsSet;</span>
+    }
+
+    /**
+     * 根据角色ID查询权限
+     * 
+     * @param roleId 角色ID
+     * @return 权限列表
+     */
+    @Override
+    public Set&lt;String&gt; selectMenuPermsByRoleId(Long roleId)
+    {
+<span class="nc" id="L120">        List&lt;String&gt; perms = menuMapper.selectMenuPermsByRoleId(roleId);</span>
+<span class="nc" id="L121">        Set&lt;String&gt; permsSet = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        for (String perm : perms)</span>
+        {
+<span class="nc bnc" id="L124" title="All 2 branches missed.">            if (StringUtils.isNotEmpty(perm))</span>
+            {
+<span class="nc" id="L126">                permsSet.addAll(Arrays.asList(perm.trim().split(&quot;,&quot;)));</span>
+            }
+<span class="nc" id="L128">        }</span>
+<span class="nc" id="L129">        return permsSet;</span>
+    }
+
+    /**
+     * 根据用户ID查询菜单
+     * 
+     * @param userId 用户名称
+     * @return 菜单列表
+     */
+    @Override
+    public List&lt;SysMenu&gt; selectMenuTreeByUserId(Long userId)
+    {
+<span class="nc" id="L141">        List&lt;SysMenu&gt; menus = null;</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (SecurityUtils.isAdmin(userId))</span>
+        {
+<span class="nc" id="L144">            menus = menuMapper.selectMenuTreeAll();</span>
+        }
+        else
+        {
+<span class="nc" id="L148">            menus = menuMapper.selectMenuTreeByUserId(userId);</span>
+        }
+<span class="nc" id="L150">        return getChildPerms(menus, MENU_ROOT_ID);</span>
+    }
+
+    /**
+     * 根据角色ID查询菜单树信息
+     * 
+     * @param roleId 角色ID
+     * @return 选中菜单列表
+     */
+    @Override
+    public List&lt;Long&gt; selectMenuListByRoleId(Long roleId)
+    {
+<span class="nc" id="L162">        SysRole role = roleMapper.selectRoleById(roleId);</span>
+<span class="nc" id="L163">        return menuMapper.selectMenuListByRoleId(roleId, role.isMenuCheckStrictly());</span>
+    }
+
+    /**
+     * 构建前端路由所需要的菜单
+     * 
+     * @param menus 菜单列表
+     * @return 路由列表
+     */
+    @Override
+    public List&lt;RouterVo&gt; buildMenus(List&lt;SysMenu&gt; menus)
+    {
+<span class="nc" id="L175">        List&lt;RouterVo&gt; routers = new LinkedList&lt;RouterVo&gt;();</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        for (SysMenu menu : menus)</span>
+        {
+<span class="nc" id="L178">            RouterVo router = new RouterVo();</span>
+<span class="nc" id="L179">            router.setHidden(&quot;1&quot;.equals(menu.getVisible()));</span>
+<span class="nc" id="L180">            router.setName(getRouteName(menu));</span>
+<span class="nc" id="L181">            router.setPath(getRouterPath(menu));</span>
+<span class="nc" id="L182">            router.setComponent(getComponent(menu));</span>
+<span class="nc" id="L183">            router.setQuery(menu.getQuery());</span>
+<span class="nc" id="L184">            router.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon(), StringUtils.equals(&quot;1&quot;, menu.getIsCache()), menu.getPath()));</span>
+<span class="nc" id="L185">            List&lt;SysMenu&gt; cMenus = menu.getChildren();</span>
+<span class="nc bnc" id="L186" title="All 4 branches missed.">            if (StringUtils.isNotEmpty(cMenus) &amp;&amp; UserConstants.TYPE_DIR.equals(menu.getMenuType()))</span>
+            {
+<span class="nc" id="L188">                router.setAlwaysShow(true);</span>
+<span class="nc" id="L189">                router.setRedirect(&quot;noRedirect&quot;);</span>
+<span class="nc" id="L190">                router.setChildren(buildMenus(cMenus));</span>
+            }
+<span class="nc bnc" id="L192" title="All 2 branches missed.">            else if (isMenuFrame(menu))</span>
+            {
+<span class="nc" id="L194">                router.setMeta(null);</span>
+<span class="nc" id="L195">                List&lt;RouterVo&gt; childrenList = new ArrayList&lt;RouterVo&gt;();</span>
+<span class="nc" id="L196">                RouterVo children = new RouterVo();</span>
+<span class="nc" id="L197">                children.setPath(menu.getPath());</span>
+<span class="nc" id="L198">                children.setComponent(menu.getComponent());</span>
+<span class="nc" id="L199">                children.setName(getRouteName(menu.getRouteName(), menu.getPath()));</span>
+<span class="nc" id="L200">                children.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon(), StringUtils.equals(&quot;1&quot;, menu.getIsCache()), menu.getPath()));</span>
+<span class="nc" id="L201">                children.setQuery(menu.getQuery());</span>
+<span class="nc" id="L202">                childrenList.add(children);</span>
+<span class="nc" id="L203">                router.setChildren(childrenList);</span>
+<span class="nc" id="L204">            }</span>
+<span class="nc bnc" id="L205" title="All 4 branches missed.">            else if (menu.getParentId().intValue() == MENU_ROOT_ID &amp;&amp; isInnerLink(menu))</span>
+            {
+<span class="nc" id="L207">                router.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon()));</span>
+<span class="nc" id="L208">                router.setPath(&quot;/&quot;);</span>
+<span class="nc" id="L209">                List&lt;RouterVo&gt; childrenList = new ArrayList&lt;RouterVo&gt;();</span>
+<span class="nc" id="L210">                RouterVo children = new RouterVo();</span>
+<span class="nc" id="L211">                String routerPath = innerLinkReplaceEach(menu.getPath());</span>
+<span class="nc" id="L212">                children.setPath(routerPath);</span>
+<span class="nc" id="L213">                children.setComponent(UserConstants.INNER_LINK);</span>
+<span class="nc" id="L214">                children.setName(getRouteName(menu.getRouteName(), routerPath));</span>
+<span class="nc" id="L215">                children.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon(), menu.getPath()));</span>
+<span class="nc" id="L216">                childrenList.add(children);</span>
+<span class="nc" id="L217">                router.setChildren(childrenList);</span>
+            }
+<span class="nc" id="L219">            routers.add(router);</span>
+<span class="nc" id="L220">        }</span>
+<span class="nc" id="L221">        return routers;</span>
+    }
+
+    /**
+     * 构建前端所需要树结构
+     * 
+     * @param menus 菜单列表
+     * @return 树结构列表
+     */
+    @Override
+    public List&lt;SysMenu&gt; buildMenuTree(List&lt;SysMenu&gt; menus)
+    {
+<span class="nc" id="L233">        List&lt;SysMenu&gt; returnList = new ArrayList&lt;SysMenu&gt;();</span>
+<span class="nc" id="L234">        List&lt;Long&gt; tempList = menus.stream().map(SysMenu::getMenuId).collect(Collectors.toList());</span>
+<span class="nc bnc" id="L235" title="All 2 branches missed.">        for (Iterator&lt;SysMenu&gt; iterator = menus.iterator(); iterator.hasNext();)</span>
+        {
+<span class="nc" id="L237">            SysMenu menu = (SysMenu) iterator.next();</span>
+            // 如果是顶级节点, 遍历该父节点的所有子节点
+<span class="nc bnc" id="L239" title="All 2 branches missed.">            if (!tempList.contains(menu.getParentId()))</span>
+            {
+<span class="nc" id="L241">                recursionFn(menus, menu);</span>
+<span class="nc" id="L242">                returnList.add(menu);</span>
+            }
+<span class="nc" id="L244">        }</span>
+<span class="nc bnc" id="L245" title="All 2 branches missed.">        if (returnList.isEmpty())</span>
+        {
+<span class="nc" id="L247">            returnList = menus;</span>
+        }
+<span class="nc" id="L249">        return returnList;</span>
+    }
+
+    /**
+     * 构建前端所需要下拉树结构
+     * 
+     * @param menus 菜单列表
+     * @return 下拉树结构列表
+     */
+    @Override
+    public List&lt;TreeSelect&gt; buildMenuTreeSelect(List&lt;SysMenu&gt; menus)
+    {
+<span class="nc" id="L261">        List&lt;SysMenu&gt; menuTrees = buildMenuTree(menus);</span>
+<span class="nc" id="L262">        return menuTrees.stream().map(TreeSelect::new).collect(Collectors.toList());</span>
+    }
+
+    /**
+     * 根据菜单ID查询信息
+     * 
+     * @param menuId 菜单ID
+     * @return 菜单信息
+     */
+    @Override
+    public SysMenu selectMenuById(Long menuId)
+    {
+<span class="nc" id="L274">        return menuMapper.selectMenuById(menuId);</span>
+    }
+
+    /**
+     * 是否存在菜单子节点
+     * 
+     * @param menuId 菜单ID
+     * @return 结果
+     */
+    @Override
+    public boolean hasChildByMenuId(Long menuId)
+    {
+<span class="nc" id="L286">        int result = menuMapper.hasChildByMenuId(menuId);</span>
+<span class="nc bnc" id="L287" title="All 2 branches missed.">        return result &gt; 0;</span>
+    }
+
+    /**
+     * 查询菜单使用数量
+     * 
+     * @param menuId 菜单ID
+     * @return 结果
+     */
+    @Override
+    public boolean checkMenuExistRole(Long menuId)
+    {
+<span class="nc" id="L299">        int result = roleMenuMapper.checkMenuExistRole(menuId);</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">        return result &gt; 0;</span>
+    }
+
+    /**
+     * 新增保存菜单信息
+     * 
+     * @param menu 菜单信息
+     * @return 结果
+     */
+    @Override
+    public int insertMenu(SysMenu menu)
+    {
+<span class="nc" id="L312">        return menuMapper.insertMenu(menu);</span>
+    }
+
+    /**
+     * 修改保存菜单信息
+     * 
+     * @param menu 菜单信息
+     * @return 结果
+     */
+    @Override
+    public int updateMenu(SysMenu menu)
+    {
+<span class="nc" id="L324">        return menuMapper.updateMenu(menu);</span>
+    }
+
+    /**
+     * 保存菜单排序
+     * 
+     * @param menuIds 菜单ID
+     * @param orderNums 排序ID
+     */
+    @Override
+    @Transactional
+    public void updateMenuSort(String[] menuIds, String[] orderNums)
+    {
+        try
+        {
+<span class="nc bnc" id="L339" title="All 2 branches missed.">            for (int i = 0; i &lt; menuIds.length; i++)</span>
+            {
+<span class="nc" id="L341">                SysMenu menu = new SysMenu();</span>
+<span class="nc" id="L342">                menu.setMenuId(Convert.toLong(menuIds[i]));</span>
+<span class="nc" id="L343">                menu.setOrderNum(Convert.toInt(orderNums[i]));</span>
+<span class="nc" id="L344">                menuMapper.updateMenuSort(menu);</span>
+            }
+        }
+<span class="nc" id="L347">        catch (Exception e)</span>
+        {
+<span class="nc" id="L349">            throw new ServiceException(&quot;保存排序异常，请联系管理员&quot;);</span>
+<span class="nc" id="L350">        }</span>
+<span class="nc" id="L351">    }</span>
+
+    /**
+     * 删除菜单管理信息
+     * 
+     * @param menuId 菜单ID
+     * @return 结果
+     */
+    @Override
+    public int deleteMenuById(Long menuId)
+    {
+<span class="nc" id="L362">        return menuMapper.deleteMenuById(menuId);</span>
+    }
+
+    /**
+     * 校验菜单名称是否唯一
+     * 
+     * @param menu 菜单信息
+     * @return 结果
+     */
+    @Override
+    public boolean checkMenuNameUnique(SysMenu menu)
+    {
+<span class="nc bnc" id="L374" title="All 2 branches missed.">        Long menuId = StringUtils.isNull(menu.getMenuId()) ? -1L : menu.getMenuId();</span>
+<span class="nc" id="L375">        SysMenu info = menuMapper.checkMenuNameUnique(menu.getMenuName(), menu.getParentId());</span>
+<span class="nc bnc" id="L376" title="All 4 branches missed.">        if (StringUtils.isNotNull(info) &amp;&amp; info.getMenuId().longValue() != menuId.longValue())</span>
+        {
+<span class="nc" id="L378">            return UserConstants.NOT_UNIQUE;</span>
+        }
+<span class="nc" id="L380">        return UserConstants.UNIQUE;</span>
+    }
+
+    /**
+     * 校验路由名称是否唯一
+     *
+     * @param menu 菜单信息
+     * @return 结果
+     */
+    @Override
+    public boolean checkRouteConfigUnique(SysMenu menu)
+    {
+<span class="nc bnc" id="L392" title="All 2 branches missed.">        Long menuId = StringUtils.isNull(menu.getMenuId()) ? -1L : menu.getMenuId();</span>
+<span class="nc" id="L393">        Long parentId = menu.getParentId();</span>
+<span class="nc" id="L394">        String path = menu.getPath();</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">        String routeName = StringUtils.isEmpty(menu.getRouteName()) ? path : menu.getRouteName();</span>
+<span class="nc" id="L396">        List&lt;SysMenu&gt; sysMenuList = menuMapper.selectMenusByPathOrRouteName(path, routeName);</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">        for (SysMenu sysMenu : sysMenuList)</span>
+        {
+<span class="nc bnc" id="L399" title="All 2 branches missed.">            if (sysMenu.getMenuId().longValue() != menuId.longValue())</span>
+            {
+<span class="nc" id="L401">                Long dbParentId = sysMenu.getParentId();</span>
+<span class="nc" id="L402">                String dbPath = sysMenu.getPath();</span>
+<span class="nc bnc" id="L403" title="All 2 branches missed.">                String dbRouteName = StringUtils.isEmpty(sysMenu.getRouteName()) ? dbPath : sysMenu.getRouteName();</span>
+<span class="nc bnc" id="L404" title="All 4 branches missed.">                if (StringUtils.equalsAnyIgnoreCase(path, dbPath) &amp;&amp; parentId.longValue() == dbParentId.longValue())</span>
+                {
+<span class="nc" id="L406">                    log.warn(&quot;[同级路由冲突] 同级下已存在相同路由路径 '{}'，冲突菜单：{}&quot;, dbPath, sysMenu.getMenuName());</span>
+<span class="nc" id="L407">                    return UserConstants.NOT_UNIQUE;</span>
+                }
+<span class="nc bnc" id="L409" title="All 4 branches missed.">                else if (StringUtils.equalsAnyIgnoreCase(path, dbPath) &amp;&amp; parentId.longValue() == MENU_ROOT_ID)</span>
+                {
+<span class="nc" id="L411">                    log.warn(&quot;[根目录路由冲突] 根目录下路由 '{}' 必须唯一，已被菜单 '{}' 占用&quot;, path, sysMenu.getMenuName());</span>
+<span class="nc" id="L412">                    return UserConstants.NOT_UNIQUE;</span>
+                }
+<span class="nc bnc" id="L414" title="All 2 branches missed.">                else if (StringUtils.equalsAnyIgnoreCase(routeName, dbRouteName))</span>
+                {
+<span class="nc" id="L416">                    log.warn(&quot;[路由名称冲突] 路由名称 '{}' 需全局唯一，已被菜单 '{}' 使用&quot;, routeName, sysMenu.getMenuName());</span>
+<span class="nc" id="L417">                    return UserConstants.NOT_UNIQUE;</span>
+                }
+            }
+<span class="nc" id="L420">        }</span>
+<span class="nc" id="L421">        return UserConstants.UNIQUE;</span>
+    }
+
+    /**
+     * 获取路由名称
+     * 
+     * @param menu 菜单信息
+     * @return 路由名称
+     */
+    public String getRouteName(SysMenu menu)
+    {
+        // 非外链并且是一级目录（类型为目录）
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (isMenuFrame(menu))</span>
+        {
+<span class="nc" id="L435">            return StringUtils.EMPTY;</span>
+        }
+<span class="nc" id="L437">        return getRouteName(menu.getRouteName(), menu.getPath());</span>
+    }
+
+    /**
+     * 获取路由名称，如没有配置路由名称则取路由地址
+     * 
+     * @param name 路由名称
+     * @param path 路由地址
+     * @return 路由名称（驼峰格式）
+     */
+    public String getRouteName(String name, String path)
+    {
+<span class="nc bnc" id="L449" title="All 2 branches missed.">        String routerName = StringUtils.isNotEmpty(name) ? name : path;</span>
+<span class="nc" id="L450">        return StringUtils.capitalize(routerName);</span>
+    }
+
+    /**
+     * 获取路由地址
+     * 
+     * @param menu 菜单信息
+     * @return 路由地址
+     */
+    public String getRouterPath(SysMenu menu)
+    {
+<span class="nc" id="L461">        String routerPath = menu.getPath();</span>
+        // 内链打开外网方式
+<span class="nc bnc" id="L463" title="All 4 branches missed.">        if (menu.getParentId().intValue() != MENU_ROOT_ID &amp;&amp; isInnerLink(menu))</span>
+        {
+<span class="nc" id="L465">            routerPath = innerLinkReplaceEach(routerPath);</span>
+        }
+        // 非外链并且是一级目录（类型为目录）
+<span class="nc bnc" id="L468" title="All 4 branches missed.">        if (MENU_ROOT_ID == menu.getParentId().intValue() &amp;&amp; UserConstants.TYPE_DIR.equals(menu.getMenuType())</span>
+<span class="nc bnc" id="L469" title="All 2 branches missed.">                &amp;&amp; UserConstants.NO_FRAME.equals(menu.getIsFrame()))</span>
+        {
+<span class="nc" id="L471">            routerPath = &quot;/&quot; + menu.getPath();</span>
+        }
+        // 非外链并且是一级目录（类型为菜单）
+<span class="nc bnc" id="L474" title="All 2 branches missed.">        else if (isMenuFrame(menu))</span>
+        {
+<span class="nc" id="L476">            routerPath = &quot;/&quot;;</span>
+        }
+<span class="nc" id="L478">        return routerPath;</span>
+    }
+
+    /**
+     * 获取组件信息
+     * 
+     * @param menu 菜单信息
+     * @return 组件信息
+     */
+    public String getComponent(SysMenu menu)
+    {
+<span class="nc" id="L489">        String component = UserConstants.LAYOUT;</span>
+<span class="nc bnc" id="L490" title="All 4 branches missed.">        if (StringUtils.isNotEmpty(menu.getComponent()) &amp;&amp; !isMenuFrame(menu))</span>
+        {
+<span class="nc" id="L492">            component = menu.getComponent();</span>
+        }
+<span class="nc bnc" id="L494" title="All 6 branches missed.">        else if (StringUtils.isEmpty(menu.getComponent()) &amp;&amp; menu.getParentId().intValue() != MENU_ROOT_ID &amp;&amp; isInnerLink(menu))</span>
+        {
+<span class="nc" id="L496">            component = UserConstants.INNER_LINK;</span>
+        }
+<span class="nc bnc" id="L498" title="All 4 branches missed.">        else if (StringUtils.isEmpty(menu.getComponent()) &amp;&amp; isParentView(menu))</span>
+        {
+<span class="nc" id="L500">            component = UserConstants.PARENT_VIEW;</span>
+        }
+<span class="nc" id="L502">        return component;</span>
+    }
+
+    /**
+     * 是否为菜单内部跳转
+     * 
+     * @param menu 菜单信息
+     * @return 结果
+     */
+    public boolean isMenuFrame(SysMenu menu)
+    {
+<span class="nc bnc" id="L513" title="All 4 branches missed.">        return menu.getParentId().intValue() == MENU_ROOT_ID &amp;&amp; UserConstants.TYPE_MENU.equals(menu.getMenuType())</span>
+<span class="nc bnc" id="L514" title="All 2 branches missed.">                &amp;&amp; menu.getIsFrame().equals(UserConstants.NO_FRAME);</span>
+    }
+
+    /**
+     * 是否为parent_view组件
+     * 
+     * @param menu 菜单信息
+     * @return 结果
+     */
+    public boolean isParentView(SysMenu menu)
+    {
+<span class="nc bnc" id="L525" title="All 4 branches missed.">        return menu.getParentId().intValue() != MENU_ROOT_ID &amp;&amp; UserConstants.TYPE_DIR.equals(menu.getMenuType());</span>
+    }
+
+    /**
+     * 是否为内链组件
+     * 
+     * @param menu 菜单信息
+     * @return 结果
+     */
+    public boolean isInnerLink(SysMenu menu)
+    {
+<span class="nc bnc" id="L536" title="All 4 branches missed.">        return menu.getIsFrame().equals(UserConstants.NO_FRAME) &amp;&amp; StringUtils.ishttp(menu.getPath());</span>
+    }
+
+    /**
+     * 根据父节点的ID获取所有子节点
+     * 
+     * @param list 分类表
+     * @param parentId 传入的父节点ID
+     * @return String
+     */
+    public List&lt;SysMenu&gt; getChildPerms(List&lt;SysMenu&gt; list, long parentId)
+    {
+<span class="nc" id="L548">        List&lt;SysMenu&gt; returnList = new ArrayList&lt;SysMenu&gt;();</span>
+<span class="nc bnc" id="L549" title="All 2 branches missed.">        for (Iterator&lt;SysMenu&gt; iterator = list.iterator(); iterator.hasNext();)</span>
+        {
+<span class="nc" id="L551">            SysMenu t = (SysMenu) iterator.next();</span>
+            // 一、根据传入的某个父节点ID,遍历该父节点的所有子节点
+<span class="nc bnc" id="L553" title="All 2 branches missed.">            if (t.getParentId() == parentId)</span>
+            {
+<span class="nc" id="L555">                recursionFn(list, t);</span>
+<span class="nc" id="L556">                returnList.add(t);</span>
+            }
+<span class="nc" id="L558">        }</span>
+<span class="nc" id="L559">        return returnList;</span>
+    }
+
+    /**
+     * 递归列表
+     * 
+     * @param list 分类表
+     * @param t 子节点
+     */
+    private void recursionFn(List&lt;SysMenu&gt; list, SysMenu t)
+    {
+        // 得到子节点列表
+<span class="nc" id="L571">        List&lt;SysMenu&gt; childList = getChildList(list, t);</span>
+<span class="nc" id="L572">        t.setChildren(childList);</span>
+<span class="nc bnc" id="L573" title="All 2 branches missed.">        for (SysMenu tChild : childList)</span>
+        {
+<span class="nc bnc" id="L575" title="All 2 branches missed.">            if (hasChild(list, tChild))</span>
+            {
+<span class="nc" id="L577">                recursionFn(list, tChild);</span>
+            }
+<span class="nc" id="L579">        }</span>
+<span class="nc" id="L580">    }</span>
+
+    /**
+     * 得到子节点列表
+     */
+    private List&lt;SysMenu&gt; getChildList(List&lt;SysMenu&gt; list, SysMenu t)
+    {
+<span class="nc" id="L587">        List&lt;SysMenu&gt; tlist = new ArrayList&lt;SysMenu&gt;();</span>
+<span class="nc" id="L588">        Iterator&lt;SysMenu&gt; it = list.iterator();</span>
+<span class="nc bnc" id="L589" title="All 2 branches missed.">        while (it.hasNext())</span>
+        {
+<span class="nc" id="L591">            SysMenu n = (SysMenu) it.next();</span>
+<span class="nc bnc" id="L592" title="All 2 branches missed.">            if (n.getParentId().longValue() == t.getMenuId().longValue())</span>
+            {
+<span class="nc" id="L594">                tlist.add(n);</span>
+            }
+<span class="nc" id="L596">        }</span>
+<span class="nc" id="L597">        return tlist;</span>
+    }
+
+    /**
+     * 判断是否有子节点
+     */
+    private boolean hasChild(List&lt;SysMenu&gt; list, SysMenu t)
+    {
+<span class="nc bnc" id="L605" title="All 2 branches missed.">        return getChildList(list, t).size() &gt; 0;</span>
+    }
+
+    /**
+     * 内链域名特殊字符替换
+     * 
+     * @return 替换后的内链域名
+     */
+    public String innerLinkReplaceEach(String path)
+    {
+<span class="nc" id="L615">        return StringUtils.replaceEach(path, new String[] { Constants.HTTP, Constants.HTTPS, Constants.WWW, &quot;.&quot;, &quot;:&quot; },</span>
+                new String[] { &quot;&quot;, &quot;&quot;, &quot;&quot;, &quot;/&quot;, &quot;/&quot; });
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

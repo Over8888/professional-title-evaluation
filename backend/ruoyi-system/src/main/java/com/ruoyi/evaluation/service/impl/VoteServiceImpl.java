@@ -143,7 +143,7 @@ public class VoteServiceImpl implements IVoteService
         List<ActivityCandidate> candidates = activityCandidateMapper.selectVoteCandidatesByActivityId(activity.getId());
         if (candidates.isEmpty())
         {
-            throw new ServiceException("当前活动没有需要投票的候选人");
+            throw new ServiceException("当前活动没有需要投票的候选人，无需提交投票");
         }
         List<VoteSubmitItem> items = request == null ? null : request.getVotes();
         if (items == null || items.size() != candidates.size())
@@ -295,7 +295,9 @@ public class VoteServiceImpl implements IVoteService
         data.put("sharedEntry", context.voter == null);
         data.put("submitted", context.voter != null && "DONE".equals(context.voter.getStatus()));
         data.put("submittedAt", context.voter == null ? null : context.voter.getSubmittedAt());
-        data.put("candidateCount", activityCandidateMapper.countVoteCandidatesByActivityId(context.activity.getId()));
+        int voteCandidateCount = activityCandidateMapper.countVoteCandidatesByActivityId(context.activity.getId());
+        data.put("candidateCount", voteCandidateCount);
+        data.put("noVoteRequired", voteCandidateCount == 0);
         data.put("allCompleted", isAllCompleted(context.activity.getId()));
         return data;
     }
@@ -345,6 +347,10 @@ public class VoteServiceImpl implements IVoteService
 
     private boolean isAllCompleted(Long activityId)
     {
+        if (activityCandidateMapper.countVoteCandidatesByActivityId(activityId) == 0)
+        {
+            return true;
+        }
         int total = activityVoterMapper.countActivityVoterByActivityId(activityId);
         int done = activityVoterMapper.countDoneByActivityId(activityId);
         return total > 0 && total == done;

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.evaluation.mapper.ActivityRangeSettingMapper">
+    <resultMap type="ActivityRangeSetting" id="ActivityRangeSettingResult">
+        <id property="id" column="id" />
+        <result property="activityId" column="activity_id" />
+        <result property="department" column="department" />
+        <result property="appliedLevel" column="applied_level" />
+        <result property="lockedPassCount" column="locked_pass_count" />
+        <result property="lockedRejectCount" column="locked_reject_count" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <select id="selectActivityRangeSettingByActivityId" parameterType="Long" resultMap="ActivityRangeSettingResult">
+        select id, activity_id, department, applied_level, locked_pass_count, locked_reject_count,
+               create_by, create_time, update_by, update_time
+        from ActivityRangeSetting
+        where activity_id = #{activityId}
+    </select>
+
+    <insert id="upsertActivityRangeSetting" parameterType="ActivityRangeSetting" useGeneratedKeys="true" keyProperty="id">
+        insert into ActivityRangeSetting(activity_id, department, applied_level, locked_pass_count, locked_reject_count,
+                                         create_by, create_time, update_by, update_time)
+        values(#{activityId}, #{department}, #{appliedLevel}, #{lockedPassCount}, #{lockedRejectCount},
+               #{createBy}, sysdate(), #{updateBy}, sysdate())
+        on duplicate key update
+            locked_pass_count = values(locked_pass_count),
+            locked_reject_count = values(locked_reject_count),
+            update_by = values(update_by),
+            update_time = sysdate()
+    </insert>
+
+    <delete id="deleteActivityRangeSettingByActivityId" parameterType="Long">
+        delete from ActivityRangeSetting where activity_id = #{activityId}
+    </delete>
+</mapper>

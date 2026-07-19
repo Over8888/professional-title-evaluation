@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SysPost.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.system.domain</a> &gt; <span class="el_source">SysPost.java</span></div><h1>SysPost.java</h1><pre class="source lang-java linenums">package com.ruoyi.system.domain;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.annotation.Excel.ColumnType;
+import com.ruoyi.common.core.domain.BaseEntity;
+
+/**
+ * 岗位表 sys_post
+ * 
+ * @author 职称评审系统项目组
+ */
+<span class="nc" id="L17">public class SysPost extends BaseEntity</span>
+{
+    private static final long serialVersionUID = 1L;
+
+    /** 岗位序号 */
+    @Excel(name = &quot;岗位序号&quot;, cellType = ColumnType.NUMERIC)
+    private Long postId;
+
+    /** 岗位编码 */
+    @Excel(name = &quot;岗位编码&quot;)
+    private String postCode;
+
+    /** 岗位名称 */
+    @Excel(name = &quot;岗位名称&quot;)
+    private String postName;
+
+    /** 岗位排序 */
+    @Excel(name = &quot;岗位排序&quot;)
+    private Integer postSort;
+
+    /** 状态（0正常 1停用） */
+    @Excel(name = &quot;状态&quot;, readConverterExp = &quot;0=正常,1=停用&quot;)
+    private String status;
+
+    /** 用户是否存在此岗位标识 默认不存在 */
+<span class="nc" id="L42">    private boolean flag = false;</span>
+
+    public Long getPostId()
+    {
+<span class="nc" id="L46">        return postId;</span>
+    }
+
+    public void setPostId(Long postId)
+    {
+<span class="nc" id="L51">        this.postId = postId;</span>
+<span class="nc" id="L52">    }</span>
+
+    @NotBlank(message = &quot;岗位编码不能为空&quot;)
+    @Size(min = 0, max = 64, message = &quot;岗位编码长度不能超过64个字符&quot;)
+    public String getPostCode()
+    {
+<span class="nc" id="L58">        return postCode;</span>
+    }
+
+    public void setPostCode(String postCode)
+    {
+<span class="nc" id="L63">        this.postCode = postCode;</span>
+<span class="nc" id="L64">    }</span>
+
+    @NotBlank(message = &quot;岗位名称不能为空&quot;)
+    @Size(min = 0, max = 50, message = &quot;岗位名称长度不能超过50个字符&quot;)
+    public String getPostName()
+    {
+<span class="nc" id="L70">        return postName;</span>
+    }
+
+    public void setPostName(String postName)
+    {
+<span class="nc" id="L75">        this.postName = postName;</span>
+<span class="nc" id="L76">    }</span>
+
+    @NotNull(message = &quot;显示顺序不能为空&quot;)
+    public Integer getPostSort()
+    {
+<span class="nc" id="L81">        return postSort;</span>
+    }
+
+    public void setPostSort(Integer postSort)
+    {
+<span class="nc" id="L86">        this.postSort = postSort;</span>
+<span class="nc" id="L87">    }</span>
+
+    public String getStatus()
+    {
+<span class="nc" id="L91">        return status;</span>
+    }
+
+    public void setStatus(String status)
+    {
+<span class="nc" id="L96">        this.status = status;</span>
+<span class="nc" id="L97">    }</span>
+
+    public boolean isFlag()
+    {
+<span class="nc" id="L101">        return flag;</span>
+    }
+
+    public void setFlag(boolean flag)
+    {
+<span class="nc" id="L106">        this.flag = flag;</span>
+<span class="nc" id="L107">    }</span>
+    
+    @Override
+    public String toString() {
+<span class="nc" id="L111">        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)</span>
+<span class="nc" id="L112">            .append(&quot;postId&quot;, getPostId())</span>
+<span class="nc" id="L113">            .append(&quot;postCode&quot;, getPostCode())</span>
+<span class="nc" id="L114">            .append(&quot;postName&quot;, getPostName())</span>
+<span class="nc" id="L115">            .append(&quot;postSort&quot;, getPostSort())</span>
+<span class="nc" id="L116">            .append(&quot;status&quot;, getStatus())</span>
+<span class="nc" id="L117">            .append(&quot;createBy&quot;, getCreateBy())</span>
+<span class="nc" id="L118">            .append(&quot;createTime&quot;, getCreateTime())</span>
+<span class="nc" id="L119">            .append(&quot;updateBy&quot;, getUpdateBy())</span>
+<span class="nc" id="L120">            .append(&quot;updateTime&quot;, getUpdateTime())</span>
+<span class="nc" id="L121">            .append(&quot;remark&quot;, getRemark())</span>
+<span class="nc" id="L122">            .toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

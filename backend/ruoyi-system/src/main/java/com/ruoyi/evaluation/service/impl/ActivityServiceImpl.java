@@ -19,6 +19,7 @@ import com.ruoyi.evaluation.domain.RuleConfig;
 import com.ruoyi.evaluation.mapper.ActivityCandidateMapper;
 import com.ruoyi.evaluation.mapper.ActivityVoterMapper;
 import com.ruoyi.evaluation.mapper.ActivityMapper;
+import com.ruoyi.evaluation.mapper.FinalEvaluationMapper;
 import com.ruoyi.evaluation.mapper.ResultAggMapper;
 import com.ruoyi.evaluation.mapper.RuleConfigMapper;
 import com.ruoyi.evaluation.mapper.VoteMapper;
@@ -44,6 +45,9 @@ public class ActivityServiceImpl implements IActivityService
 
     @Autowired
     private ResultAggMapper resultAggMapper;
+
+    @Autowired
+    private FinalEvaluationMapper finalEvaluationMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -151,10 +155,15 @@ public class ActivityServiceImpl implements IActivityService
     {
         Activity current = activityMapper.selectActivityById(id);
         validateStatusTransition(current, "PUBLISHED");
+        boolean noVoteRequired = activityCandidateMapper.countVoteCandidatesByActivityId(id) == 0;
         Activity activity = new Activity();
         activity.setId(id);
-        activity.setStatus(resolvePublishedStatus(current));
+        activity.setStatus(noVoteRequired ? "CLOSED" : resolvePublishedStatus(current));
         activity.setPublishTime(new java.util.Date());
+        if (noVoteRequired)
+        {
+            activity.setEndTime(new java.util.Date());
+        }
         if (StringUtils.isEmpty(current.getVoteEntryKey()))
         {
             activity.setVoteEntryKey(UUID.randomUUID().toString().replace("-", ""));
@@ -165,6 +174,7 @@ public class ActivityServiceImpl implements IActivityService
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("activityId", published.getId());
         data.put("status", published.getStatus());
+        data.put("noVoteRequired", noVoteRequired);
         data.put("publishedAt", published.getPublishTime());
         data.put("voteEntryKey", published.getVoteEntryKey());
         data.put("voteUrl", requestBaseUrl + "/vote/activity/" + published.getVoteEntryKey());
@@ -195,6 +205,7 @@ public class ActivityServiceImpl implements IActivityService
         Activity activity = activityMapper.selectActivityById(id);
         validateDeleteReady(activity);
         voteMapper.deleteVoteByActivityId(id);
+        finalEvaluationMapper.deleteFinalEvaluationByActivityId(id);
         resultAggMapper.deleteResultAggByActivityId(id);
         activityVoterMapper.deleteActivityVoterByActivityId(id);
         activityCandidateMapper.deleteActivityCandidateByActivityId(id);
@@ -305,11 +316,8 @@ public class ActivityServiceImpl implements IActivityService
         {
             throw new ServiceException("Apply candidate range before publishing.");
         }
-        if (activityCandidateMapper.countVoteCandidatesByActivityId(activityId) == 0)
-        {
-            throw new ServiceException("At least one candidate must remain in the voting range before publishing.");
-        }
-        if (activityVoterMapper.countActivityVoterByActivityId(activityId) == 0)
+        if (activityCandidateMapper.countVoteCandidatesByActivityId(activityId) > 0
+                && activityVoterMapper.countActivityVoterByActivityId(activityId) == 0)
         {
             throw new ServiceException("发布前必须先选择或导入评委");
         }
@@ -329,6 +337,10 @@ public class ActivityServiceImpl implements IActivityService
 
     private void validateAllVotersDone(Long activityId)
     {
+        if (activityCandidateMapper.countVoteCandidatesByActivityId(activityId) == 0)
+        {
+            return;
+        }
         int total = activityVoterMapper.countActivityVoterByActivityId(activityId);
         int done = activityVoterMapper.countDoneByActivityId(activityId);
         if (total <= 0)

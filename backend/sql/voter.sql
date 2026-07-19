@@ -1,0 +1,1 @@
+INSERT INTO `Voter` (`id`, `import_seq`, `name`, `employee_id`, `department`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES (1, 1, '评委01', 'JUDGE001', '船体组', 'codex', '2026-06-20 22:39:07', '', NULL, '评委账号 judge01');

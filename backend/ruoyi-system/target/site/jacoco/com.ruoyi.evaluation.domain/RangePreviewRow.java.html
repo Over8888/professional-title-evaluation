@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RangePreviewRow.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.domain</a> &gt; <span class="el_source">RangePreviewRow.java</span></div><h1>RangePreviewRow.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.domain;
+
+import java.math.BigDecimal;
+import com.ruoyi.common.annotation.Excel;
+
+<span class="nc" id="L6">public class RangePreviewRow</span>
+{
+    @Excel(name = &quot;申报等级&quot;)
+    private String appliedLevel;
+    @Excel(name = &quot;组别/专业&quot;)
+    private String department;
+    @Excel(name = &quot;申报人数&quot;)
+    private Integer candidateCount;
+    @Excel(name = &quot;最高通过比例&quot;)
+    private BigDecimal passRatio;
+    @Excel(name = &quot;最多通过人数&quot;)
+    private Long maxPassCount;
+    @Excel(name = &quot;锁定通过人数&quot;)
+    private Long fixedPassCount;
+    @Excel(name = &quot;确定通过序号范围&quot;)
+    private String fixedPassRange;
+    @Excel(name = &quot;需要投票范围&quot;)
+    private String voteRange;
+    @Excel(name = &quot;投票不推荐最少人数&quot;)
+    private Long minVoteRejectCount;
+    @Excel(name = &quot;锁定不通过人数&quot;)
+    private Long fixedRejectCount;
+    @Excel(name = &quot;确定不通过序号范围&quot;)
+    private String fixedRejectRange;
+    @Excel(name = &quot;计划评委数&quot;)
+    private Integer plannedVoterCount;
+    @Excel(name = &quot;状态&quot;)
+    private String status;
+
+<span class="nc" id="L35">    public String getDepartment() { return department; }</span>
+<span class="nc" id="L36">    public void setDepartment(String department) { this.department = department; }</span>
+<span class="nc" id="L37">    public String getAppliedLevel() { return appliedLevel; }</span>
+<span class="nc" id="L38">    public void setAppliedLevel(String appliedLevel) { this.appliedLevel = appliedLevel; }</span>
+<span class="nc" id="L39">    public Integer getCandidateCount() { return candidateCount; }</span>
+<span class="nc" id="L40">    public void setCandidateCount(Integer candidateCount) { this.candidateCount = candidateCount; }</span>
+<span class="nc" id="L41">    public BigDecimal getPassRatio() { return passRatio; }</span>
+<span class="nc" id="L42">    public void setPassRatio(BigDecimal passRatio) { this.passRatio = passRatio; }</span>
+<span class="nc" id="L43">    public Long getMaxPassCount() { return maxPassCount; }</span>
+<span class="nc" id="L44">    public void setMaxPassCount(Long maxPassCount) { this.maxPassCount = maxPassCount; }</span>
+<span class="nc" id="L45">    public Long getFixedPassCount() { return fixedPassCount; }</span>
+<span class="nc" id="L46">    public void setFixedPassCount(Long fixedPassCount) { this.fixedPassCount = fixedPassCount; }</span>
+<span class="nc" id="L47">    public Long getMinVoteRejectCount() { return minVoteRejectCount; }</span>
+<span class="nc" id="L48">    public void setMinVoteRejectCount(Long minVoteRejectCount) { this.minVoteRejectCount = minVoteRejectCount; }</span>
+<span class="nc" id="L49">    public Long getFixedRejectCount() { return fixedRejectCount; }</span>
+<span class="nc" id="L50">    public void setFixedRejectCount(Long fixedRejectCount) { this.fixedRejectCount = fixedRejectCount; }</span>
+<span class="nc" id="L51">    public String getFixedPassRange() { return fixedPassRange; }</span>
+<span class="nc" id="L52">    public void setFixedPassRange(String fixedPassRange) { this.fixedPassRange = fixedPassRange; }</span>
+<span class="nc" id="L53">    public String getVoteRange() { return voteRange; }</span>
+<span class="nc" id="L54">    public void setVoteRange(String voteRange) { this.voteRange = voteRange; }</span>
+<span class="nc" id="L55">    public String getFixedRejectRange() { return fixedRejectRange; }</span>
+<span class="nc" id="L56">    public void setFixedRejectRange(String fixedRejectRange) { this.fixedRejectRange = fixedRejectRange; }</span>
+<span class="nc" id="L57">    public Integer getPlannedVoterCount() { return plannedVoterCount; }</span>
+<span class="nc" id="L58">    public void setPlannedVoterCount(Integer plannedVoterCount) { this.plannedVoterCount = plannedVoterCount; }</span>
+<span class="nc" id="L59">    public String getStatus() { return status; }</span>
+<span class="nc" id="L60">    public void setStatus(String status) { this.status = status; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

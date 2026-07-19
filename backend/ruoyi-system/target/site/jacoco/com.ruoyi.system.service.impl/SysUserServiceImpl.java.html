@@ -1,0 +1,566 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SysUserServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.system.service.impl</a> &gt; <span class="el_source">SysUserServiceImpl.java</span></div><h1>SysUserServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.system.service.impl;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
+import jakarta.validation.Validator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+import com.ruoyi.common.annotation.DataScope;
+import com.ruoyi.common.constant.UserConstants;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.core.domain.entity.SysUser;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.bean.BeanValidators;
+import com.ruoyi.common.utils.spring.SpringUtils;
+import com.ruoyi.system.domain.SysPost;
+import com.ruoyi.system.domain.SysUserPost;
+import com.ruoyi.system.domain.SysUserRole;
+import com.ruoyi.system.mapper.SysPostMapper;
+import com.ruoyi.system.mapper.SysRoleMapper;
+import com.ruoyi.system.mapper.SysUserMapper;
+import com.ruoyi.system.mapper.SysUserPostMapper;
+import com.ruoyi.system.mapper.SysUserRoleMapper;
+import com.ruoyi.system.service.ISysConfigService;
+import com.ruoyi.system.service.ISysDeptService;
+import com.ruoyi.system.service.ISysUserService;
+
+/**
+ * 用户 业务层处理
+ * 
+ * @author 职称评审系统项目组
+ */
+@Service
+<span class="nc" id="L41">public class SysUserServiceImpl implements ISysUserService</span>
+{
+<span class="nc" id="L43">    private static final Logger log = LoggerFactory.getLogger(SysUserServiceImpl.class);</span>
+
+    @Autowired
+    private SysUserMapper userMapper;
+
+    @Autowired
+    private SysRoleMapper roleMapper;
+
+    @Autowired
+    private SysPostMapper postMapper;
+
+    @Autowired
+    private SysUserRoleMapper userRoleMapper;
+
+    @Autowired
+    private SysUserPostMapper userPostMapper;
+
+    @Autowired
+    private ISysConfigService configService;
+
+    @Autowired
+    private ISysDeptService deptService;
+
+    @Autowired
+    protected Validator validator;
+
+    /**
+     * 根据条件分页查询用户列表
+     * 
+     * @param user 用户信息
+     * @return 用户信息集合信息
+     */
+    @Override
+    @DataScope(deptAlias = &quot;d&quot;, userAlias = &quot;u&quot;)
+    public List&lt;SysUser&gt; selectUserList(SysUser user)
+    {
+<span class="nc" id="L79">        return userMapper.selectUserList(user);</span>
+    }
+
+    /**
+     * 根据条件分页查询已分配用户角色列表
+     * 
+     * @param user 用户信息
+     * @return 用户信息集合信息
+     */
+    @Override
+    @DataScope(deptAlias = &quot;d&quot;, userAlias = &quot;u&quot;)
+    public List&lt;SysUser&gt; selectAllocatedList(SysUser user)
+    {
+<span class="nc" id="L92">        return userMapper.selectAllocatedList(user);</span>
+    }
+
+    /**
+     * 根据条件分页查询未分配用户角色列表
+     * 
+     * @param user 用户信息
+     * @return 用户信息集合信息
+     */
+    @Override
+    @DataScope(deptAlias = &quot;d&quot;, userAlias = &quot;u&quot;)
+    public List&lt;SysUser&gt; selectUnallocatedList(SysUser user)
+    {
+<span class="nc" id="L105">        return userMapper.selectUnallocatedList(user);</span>
+    }
+
+    /**
+     * 通过用户名查询用户
+     * 
+     * @param userName 用户名
+     * @return 用户对象信息
+     */
+    @Override
+    public SysUser selectUserByUserName(String userName)
+    {
+<span class="nc" id="L117">        return userMapper.selectUserByUserName(userName);</span>
+    }
+
+    /**
+     * 通过用户ID查询用户
+     * 
+     * @param userId 用户ID
+     * @return 用户对象信息
+     */
+    @Override
+    public SysUser selectUserById(Long userId)
+    {
+<span class="nc" id="L129">        return userMapper.selectUserById(userId);</span>
+    }
+
+    /**
+     * 查询用户所属角色组
+     * 
+     * @param userName 用户名
+     * @return 结果
+     */
+    @Override
+    public String selectUserRoleGroup(String userName)
+    {
+<span class="nc" id="L141">        List&lt;SysRole&gt; list = roleMapper.selectRolesByUserName(userName);</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (CollectionUtils.isEmpty(list))</span>
+        {
+<span class="nc" id="L144">            return StringUtils.EMPTY;</span>
+        }
+<span class="nc" id="L146">        return list.stream().map(SysRole::getRoleName).collect(Collectors.joining(&quot;,&quot;));</span>
+    }
+
+    /**
+     * 查询用户所属岗位组
+     * 
+     * @param userName 用户名
+     * @return 结果
+     */
+    @Override
+    public String selectUserPostGroup(String userName)
+    {
+<span class="nc" id="L158">        List&lt;SysPost&gt; list = postMapper.selectPostsByUserName(userName);</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">        if (CollectionUtils.isEmpty(list))</span>
+        {
+<span class="nc" id="L161">            return StringUtils.EMPTY;</span>
+        }
+<span class="nc" id="L163">        return list.stream().map(SysPost::getPostName).collect(Collectors.joining(&quot;,&quot;));</span>
+    }
+
+    /**
+     * 校验用户名称是否唯一
+     * 
+     * @param user 用户信息
+     * @return 结果
+     */
+    @Override
+    public boolean checkUserNameUnique(SysUser user)
+    {
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        Long userId = StringUtils.isNull(user.getUserId()) ? -1L : user.getUserId();</span>
+<span class="nc" id="L176">        SysUser info = userMapper.checkUserNameUnique(user.getUserName());</span>
+<span class="nc bnc" id="L177" title="All 4 branches missed.">        if (StringUtils.isNotNull(info) &amp;&amp; info.getUserId().longValue() != userId.longValue())</span>
+        {
+<span class="nc" id="L179">            return UserConstants.NOT_UNIQUE;</span>
+        }
+<span class="nc" id="L181">        return UserConstants.UNIQUE;</span>
+    }
+
+    /**
+     * 校验手机号码是否唯一
+     *
+     * @param user 用户信息
+     * @return
+     */
+    @Override
+    public boolean checkPhoneUnique(SysUser user)
+    {
+<span class="nc bnc" id="L193" title="All 2 branches missed.">        Long userId = StringUtils.isNull(user.getUserId()) ? -1L : user.getUserId();</span>
+<span class="nc" id="L194">        SysUser info = userMapper.checkPhoneUnique(user.getPhonenumber());</span>
+<span class="nc bnc" id="L195" title="All 4 branches missed.">        if (StringUtils.isNotNull(info) &amp;&amp; info.getUserId().longValue() != userId.longValue())</span>
+        {
+<span class="nc" id="L197">            return UserConstants.NOT_UNIQUE;</span>
+        }
+<span class="nc" id="L199">        return UserConstants.UNIQUE;</span>
+    }
+
+    /**
+     * 校验email是否唯一
+     *
+     * @param user 用户信息
+     * @return
+     */
+    @Override
+    public boolean checkEmailUnique(SysUser user)
+    {
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        Long userId = StringUtils.isNull(user.getUserId()) ? -1L : user.getUserId();</span>
+<span class="nc" id="L212">        SysUser info = userMapper.checkEmailUnique(user.getEmail());</span>
+<span class="nc bnc" id="L213" title="All 4 branches missed.">        if (StringUtils.isNotNull(info) &amp;&amp; info.getUserId().longValue() != userId.longValue())</span>
+        {
+<span class="nc" id="L215">            return UserConstants.NOT_UNIQUE;</span>
+        }
+<span class="nc" id="L217">        return UserConstants.UNIQUE;</span>
+    }
+
+    /**
+     * 校验用户是否允许操作
+     * 
+     * @param user 用户信息
+     */
+    @Override
+    public void checkUserAllowed(SysUser user)
+    {
+<span class="nc bnc" id="L228" title="All 4 branches missed.">        if (StringUtils.isNotNull(user.getUserId()) &amp;&amp; user.isAdmin())</span>
+        {
+<span class="nc" id="L230">            throw new ServiceException(&quot;不允许操作超级管理员用户&quot;);</span>
+        }
+<span class="nc" id="L232">    }</span>
+
+    /**
+     * 校验用户是否有数据权限
+     * 
+     * @param userId 用户id
+     */
+    @Override
+    public void checkUserDataScope(Long userId)
+    {
+<span class="nc bnc" id="L242" title="All 2 branches missed.">        if (!SecurityUtils.isAdmin())</span>
+        {
+<span class="nc" id="L244">            SysUser user = new SysUser();</span>
+<span class="nc" id="L245">            user.setUserId(userId);</span>
+<span class="nc" id="L246">            List&lt;SysUser&gt; users = SpringUtils.getAopProxy(this).selectUserList(user);</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">            if (StringUtils.isEmpty(users))</span>
+            {
+<span class="nc" id="L249">                throw new ServiceException(&quot;没有权限访问用户数据！&quot;);</span>
+            }
+        }
+<span class="nc" id="L252">    }</span>
+
+    /**
+     * 新增保存用户信息
+     * 
+     * @param user 用户信息
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int insertUser(SysUser user)
+    {
+        // 新增用户信息
+<span class="nc" id="L265">        int rows = userMapper.insertUser(user);</span>
+        // 新增用户岗位关联
+<span class="nc" id="L267">        insertUserPost(user);</span>
+        // 新增用户与角色管理
+<span class="nc" id="L269">        insertUserRole(user);</span>
+<span class="nc" id="L270">        return rows;</span>
+    }
+
+    /**
+     * 注册用户信息
+     * 
+     * @param user 用户信息
+     * @return 结果
+     */
+    @Override
+    public boolean registerUser(SysUser user)
+    {
+<span class="nc bnc" id="L282" title="All 2 branches missed.">        return userMapper.insertUser(user) &gt; 0;</span>
+    }
+
+    /**
+     * 修改保存用户信息
+     * 
+     * @param user 用户信息
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int updateUser(SysUser user)
+    {
+<span class="nc" id="L295">        Long userId = user.getUserId();</span>
+        // 删除用户与角色关联
+<span class="nc" id="L297">        userRoleMapper.deleteUserRoleByUserId(userId);</span>
+        // 新增用户与角色管理
+<span class="nc" id="L299">        insertUserRole(user);</span>
+        // 删除用户与岗位关联
+<span class="nc" id="L301">        userPostMapper.deleteUserPostByUserId(userId);</span>
+        // 新增用户与岗位管理
+<span class="nc" id="L303">        insertUserPost(user);</span>
+<span class="nc" id="L304">        return userMapper.updateUser(user);</span>
+    }
+
+    /**
+     * 用户授权角色
+     * 
+     * @param userId 用户ID
+     * @param roleIds 角色组
+     */
+    @Override
+    @Transactional
+    public void insertUserAuth(Long userId, Long[] roleIds)
+    {
+<span class="nc" id="L317">        userRoleMapper.deleteUserRoleByUserId(userId);</span>
+<span class="nc" id="L318">        insertUserRole(userId, roleIds);</span>
+<span class="nc" id="L319">    }</span>
+
+    /**
+     * 修改用户状态
+     * 
+     * @param user 用户信息
+     * @return 结果
+     */
+    @Override
+    public int updateUserStatus(SysUser user)
+    {
+<span class="nc" id="L330">        return userMapper.updateUserStatus(user.getUserId(), user.getStatus());</span>
+    }
+
+    /**
+     * 修改用户基本信息
+     * 
+     * @param user 用户信息
+     * @return 结果
+     */
+    @Override
+    public int updateUserProfile(SysUser user)
+    {
+<span class="nc" id="L342">        return userMapper.updateUser(user);</span>
+    }
+
+    /**
+     * 修改用户头像
+     * 
+     * @param userId 用户ID
+     * @param avatar 头像地址
+     * @return 结果
+     */
+    @Override
+    public boolean updateUserAvatar(Long userId, String avatar)
+    {
+<span class="nc bnc" id="L355" title="All 2 branches missed.">        return userMapper.updateUserAvatar(userId, avatar) &gt; 0;</span>
+    }
+
+    /**
+     * 更新用户登录信息（IP和登录时间）
+     * 
+     * @param userId 用户ID
+     * @param loginIp 登录IP地址
+     * @param loginDate 登录时间
+     * @return 结果
+     */
+    public void updateLoginInfo(Long userId, String loginIp, Date loginDate)
+    {
+<span class="nc" id="L368">        userMapper.updateLoginInfo(userId, loginIp, loginDate);</span>
+<span class="nc" id="L369">    }</span>
+
+    /**
+     * 重置用户密码
+     * 
+     * @param user 用户信息
+     * @return 结果
+     */
+    @Override
+    public int resetPwd(SysUser user)
+    {
+<span class="nc" id="L380">        return userMapper.resetUserPwd(user.getUserId(), user.getPassword());</span>
+    }
+
+    /**
+     * 重置用户密码
+     * 
+     * @param userId 用户ID
+     * @param password 密码
+     * @return 结果
+     */
+    @Override
+    public int resetUserPwd(Long userId, String password)
+    {
+<span class="nc" id="L393">        return userMapper.resetUserPwd(userId, password);</span>
+    }
+
+    /**
+     * 新增用户角色信息
+     * 
+     * @param user 用户对象
+     */
+    public void insertUserRole(SysUser user)
+    {
+<span class="nc" id="L403">        this.insertUserRole(user.getUserId(), user.getRoleIds());</span>
+<span class="nc" id="L404">    }</span>
+
+    /**
+     * 新增用户岗位信息
+     * 
+     * @param user 用户对象
+     */
+    public void insertUserPost(SysUser user)
+    {
+<span class="nc" id="L413">        Long[] posts = user.getPostIds();</span>
+<span class="nc bnc" id="L414" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(posts))</span>
+        {
+            // 新增用户与岗位管理
+<span class="nc" id="L417">            List&lt;SysUserPost&gt; list = new ArrayList&lt;SysUserPost&gt;(posts.length);</span>
+<span class="nc bnc" id="L418" title="All 2 branches missed.">            for (Long postId : posts)</span>
+            {
+<span class="nc" id="L420">                SysUserPost up = new SysUserPost();</span>
+<span class="nc" id="L421">                up.setUserId(user.getUserId());</span>
+<span class="nc" id="L422">                up.setPostId(postId);</span>
+<span class="nc" id="L423">                list.add(up);</span>
+            }
+<span class="nc" id="L425">            userPostMapper.batchUserPost(list);</span>
+        }
+<span class="nc" id="L427">    }</span>
+
+    /**
+     * 新增用户角色信息
+     * 
+     * @param userId 用户ID
+     * @param roleIds 角色组
+     */
+    public void insertUserRole(Long userId, Long[] roleIds)
+    {
+<span class="nc bnc" id="L437" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(roleIds))</span>
+        {
+            // 新增用户与角色管理
+<span class="nc" id="L440">            List&lt;SysUserRole&gt; list = new ArrayList&lt;SysUserRole&gt;(roleIds.length);</span>
+<span class="nc bnc" id="L441" title="All 2 branches missed.">            for (Long roleId : roleIds)</span>
+            {
+<span class="nc" id="L443">                SysUserRole ur = new SysUserRole();</span>
+<span class="nc" id="L444">                ur.setUserId(userId);</span>
+<span class="nc" id="L445">                ur.setRoleId(roleId);</span>
+<span class="nc" id="L446">                list.add(ur);</span>
+            }
+<span class="nc" id="L448">            userRoleMapper.batchUserRole(list);</span>
+        }
+<span class="nc" id="L450">    }</span>
+
+    /**
+     * 通过用户ID删除用户
+     * 
+     * @param userId 用户ID
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int deleteUserById(Long userId)
+    {
+        // 删除用户与角色关联
+<span class="nc" id="L463">        userRoleMapper.deleteUserRoleByUserId(userId);</span>
+        // 删除用户与岗位表
+<span class="nc" id="L465">        userPostMapper.deleteUserPostByUserId(userId);</span>
+<span class="nc" id="L466">        return userMapper.deleteUserById(userId);</span>
+    }
+
+    /**
+     * 批量删除用户信息
+     * 
+     * @param userIds 需要删除的用户ID
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int deleteUserByIds(Long[] userIds)
+    {
+<span class="nc bnc" id="L479" title="All 2 branches missed.">        for (Long userId : userIds)</span>
+        {
+<span class="nc" id="L481">            checkUserAllowed(new SysUser(userId));</span>
+<span class="nc" id="L482">            checkUserDataScope(userId);</span>
+        }
+        // 删除用户与角色关联
+<span class="nc" id="L485">        userRoleMapper.deleteUserRole(userIds);</span>
+        // 删除用户与岗位关联
+<span class="nc" id="L487">        userPostMapper.deleteUserPost(userIds);</span>
+<span class="nc" id="L488">        return userMapper.deleteUserByIds(userIds);</span>
+    }
+
+    /**
+     * 导入用户数据
+     * 
+     * @param userList 用户数据列表
+     * @param isUpdateSupport 是否更新支持，如果已存在，则进行更新数据
+     * @param operName 操作用户
+     * @return 结果
+     */
+    @Override
+    public String importUser(List&lt;SysUser&gt; userList, Boolean isUpdateSupport, String operName)
+    {
+<span class="nc bnc" id="L502" title="All 4 branches missed.">        if (StringUtils.isNull(userList) || userList.size() == 0)</span>
+        {
+<span class="nc" id="L504">            throw new ServiceException(&quot;导入用户数据不能为空！&quot;);</span>
+        }
+<span class="nc" id="L506">        int successNum = 0;</span>
+<span class="nc" id="L507">        int failureNum = 0;</span>
+<span class="nc" id="L508">        StringBuilder successMsg = new StringBuilder();</span>
+<span class="nc" id="L509">        StringBuilder failureMsg = new StringBuilder();</span>
+<span class="nc bnc" id="L510" title="All 2 branches missed.">        for (SysUser user : userList)</span>
+        {
+            try
+            {
+                // 验证是否存在这个用户
+<span class="nc" id="L515">                SysUser u = userMapper.selectUserByUserName(user.getUserName());</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">                if (StringUtils.isNull(u))</span>
+                {
+<span class="nc" id="L518">                    BeanValidators.validateWithException(validator, user);</span>
+<span class="nc" id="L519">                    deptService.checkDeptDataScope(user.getDeptId());</span>
+<span class="nc" id="L520">                    String password = configService.selectConfigByKey(&quot;sys.user.initPassword&quot;);</span>
+<span class="nc" id="L521">                    user.setPassword(SecurityUtils.encryptPassword(password));</span>
+<span class="nc" id="L522">                    user.setCreateBy(operName);</span>
+<span class="nc" id="L523">                    userMapper.insertUser(user);</span>
+<span class="nc" id="L524">                    successNum++;</span>
+<span class="nc" id="L525">                    successMsg.append(&quot;&lt;br/&gt;&quot; + successNum + &quot;、账号 &quot; + user.getUserName() + &quot; 导入成功&quot;);</span>
+<span class="nc" id="L526">                }</span>
+<span class="nc bnc" id="L527" title="All 2 branches missed.">                else if (isUpdateSupport)</span>
+                {
+<span class="nc" id="L529">                    BeanValidators.validateWithException(validator, user);</span>
+<span class="nc" id="L530">                    checkUserAllowed(u);</span>
+<span class="nc" id="L531">                    checkUserDataScope(u.getUserId());</span>
+<span class="nc" id="L532">                    deptService.checkDeptDataScope(user.getDeptId());</span>
+<span class="nc" id="L533">                    user.setUserId(u.getUserId());</span>
+<span class="nc" id="L534">                    user.setDeptId(u.getDeptId());</span>
+<span class="nc" id="L535">                    user.setUpdateBy(operName);</span>
+<span class="nc" id="L536">                    userMapper.updateUser(user);</span>
+<span class="nc" id="L537">                    successNum++;</span>
+<span class="nc" id="L538">                    successMsg.append(&quot;&lt;br/&gt;&quot; + successNum + &quot;、账号 &quot; + user.getUserName() + &quot; 更新成功&quot;);</span>
+                }
+                else
+                {
+<span class="nc" id="L542">                    failureNum++;</span>
+<span class="nc" id="L543">                    failureMsg.append(&quot;&lt;br/&gt;&quot; + failureNum + &quot;、账号 &quot; + user.getUserName() + &quot; 已存在&quot;);</span>
+                }
+            }
+<span class="nc" id="L546">            catch (Exception e)</span>
+            {
+<span class="nc" id="L548">                failureNum++;</span>
+<span class="nc" id="L549">                String msg = &quot;&lt;br/&gt;&quot; + failureNum + &quot;、账号 &quot; + user.getUserName() + &quot; 导入失败：&quot;;</span>
+<span class="nc" id="L550">                failureMsg.append(msg + e.getMessage());</span>
+<span class="nc" id="L551">                log.error(msg, e);</span>
+<span class="nc" id="L552">            }</span>
+<span class="nc" id="L553">        }</span>
+<span class="nc bnc" id="L554" title="All 2 branches missed.">        if (failureNum &gt; 0)</span>
+        {
+<span class="nc" id="L556">            failureMsg.insert(0, &quot;很抱歉，导入失败！共 &quot; + failureNum + &quot; 条数据格式不正确，错误如下：&quot;);</span>
+<span class="nc" id="L557">            throw new ServiceException(failureMsg.toString());</span>
+        }
+        else
+        {
+<span class="nc" id="L561">            successMsg.insert(0, &quot;恭喜您，数据已全部导入成功！共 &quot; + successNum + &quot; 条，数据如下：&quot;);</span>
+        }
+<span class="nc" id="L563">        return successMsg.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

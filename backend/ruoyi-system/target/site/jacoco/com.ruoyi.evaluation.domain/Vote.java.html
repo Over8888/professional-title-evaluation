@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Vote.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.domain</a> &gt; <span class="el_source">Vote.java</span></div><h1>Vote.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.domain;
+
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.ruoyi.common.core.domain.BaseEntity;
+
+<span class="fc" id="L7">public class Vote extends BaseEntity</span>
+{
+    private static final long serialVersionUID = 1L;
+
+    private Long id;
+    private Long activityId;
+    private Long activityVoterId;
+    private Long activityCandidateId;
+    private String result;
+    private Integer roundNo;
+    private Integer voteCount;
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date createdAt;
+
+    private String voterName;
+    private String voterEmployeeId;
+    private Integer voterImportSeq;
+    private String voterDepartment;
+    private Integer importSeq;
+    private String candidateName;
+    private String company;
+    private String department;
+    private String thirdLevelDepartment;
+    private String position;
+    private String appliedLevel;
+    private String fixedType;
+
+<span class="nc" id="L34">    public Long getId() { return id; }</span>
+<span class="nc" id="L35">    public void setId(Long id) { this.id = id; }</span>
+<span class="nc" id="L36">    public Long getActivityId() { return activityId; }</span>
+<span class="fc" id="L37">    public void setActivityId(Long activityId) { this.activityId = activityId; }</span>
+<span class="nc" id="L38">    public Long getActivityVoterId() { return activityVoterId; }</span>
+<span class="fc" id="L39">    public void setActivityVoterId(Long activityVoterId) { this.activityVoterId = activityVoterId; }</span>
+<span class="fc" id="L40">    public Long getActivityCandidateId() { return activityCandidateId; }</span>
+<span class="fc" id="L41">    public void setActivityCandidateId(Long activityCandidateId) { this.activityCandidateId = activityCandidateId; }</span>
+<span class="fc" id="L42">    public String getResult() { return result; }</span>
+<span class="fc" id="L43">    public void setResult(String result) { this.result = result; }</span>
+<span class="nc" id="L44">    public Integer getRoundNo() { return roundNo; }</span>
+<span class="fc" id="L45">    public void setRoundNo(Integer roundNo) { this.roundNo = roundNo; }</span>
+<span class="fc" id="L46">    public Integer getVoteCount() { return voteCount; }</span>
+<span class="fc" id="L47">    public void setVoteCount(Integer voteCount) { this.voteCount = voteCount; }</span>
+<span class="nc" id="L48">    public Date getCreatedAt() { return createdAt; }</span>
+<span class="nc" id="L49">    public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }</span>
+<span class="fc" id="L50">    public String getVoterName() { return voterName; }</span>
+<span class="fc" id="L51">    public void setVoterName(String voterName) { this.voterName = voterName; }</span>
+<span class="fc" id="L52">    public String getVoterEmployeeId() { return voterEmployeeId; }</span>
+<span class="fc" id="L53">    public void setVoterEmployeeId(String voterEmployeeId) { this.voterEmployeeId = voterEmployeeId; }</span>
+<span class="fc" id="L54">    public Integer getVoterImportSeq() { return voterImportSeq; }</span>
+<span class="nc" id="L55">    public void setVoterImportSeq(Integer voterImportSeq) { this.voterImportSeq = voterImportSeq; }</span>
+<span class="fc" id="L56">    public String getVoterDepartment() { return voterDepartment; }</span>
+<span class="fc" id="L57">    public void setVoterDepartment(String voterDepartment) { this.voterDepartment = voterDepartment; }</span>
+<span class="fc" id="L58">    public Integer getImportSeq() { return importSeq; }</span>
+<span class="fc" id="L59">    public void setImportSeq(Integer importSeq) { this.importSeq = importSeq; }</span>
+<span class="fc" id="L60">    public String getCandidateName() { return candidateName; }</span>
+<span class="fc" id="L61">    public void setCandidateName(String candidateName) { this.candidateName = candidateName; }</span>
+<span class="fc" id="L62">    public String getCompany() { return company; }</span>
+<span class="fc" id="L63">    public void setCompany(String company) { this.company = company; }</span>
+<span class="fc" id="L64">    public String getDepartment() { return department; }</span>
+<span class="fc" id="L65">    public void setDepartment(String department) { this.department = department; }</span>
+<span class="nc" id="L66">    public String getThirdLevelDepartment() { return thirdLevelDepartment; }</span>
+<span class="nc" id="L67">    public void setThirdLevelDepartment(String thirdLevelDepartment) { this.thirdLevelDepartment = thirdLevelDepartment; }</span>
+<span class="fc" id="L68">    public String getPosition() { return position; }</span>
+<span class="fc" id="L69">    public void setPosition(String position) { this.position = position; }</span>
+<span class="fc" id="L70">    public String getAppliedLevel() { return appliedLevel; }</span>
+<span class="fc" id="L71">    public void setAppliedLevel(String appliedLevel) { this.appliedLevel = appliedLevel; }</span>
+<span class="nc" id="L72">    public String getFixedType() { return fixedType; }</span>
+<span class="nc" id="L73">    public void setFixedType(String fixedType) { this.fixedType = fixedType; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

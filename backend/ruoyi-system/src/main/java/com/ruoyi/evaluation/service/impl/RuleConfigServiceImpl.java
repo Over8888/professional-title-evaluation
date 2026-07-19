@@ -12,21 +12,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.evaluation.domain.Activity;
 import com.ruoyi.evaluation.domain.ActivityRangeSetting;
 import com.ruoyi.evaluation.domain.ActivityVoter;
 import com.ruoyi.evaluation.domain.Candidate;
 import com.ruoyi.evaluation.domain.RuleConfig;
 import com.ruoyi.evaluation.mapper.ActivityCandidateMapper;
+import com.ruoyi.evaluation.mapper.ActivityMapper;
 import com.ruoyi.evaluation.mapper.ActivityRangeSettingMapper;
 import com.ruoyi.evaluation.mapper.ActivityVoterMapper;
 import com.ruoyi.evaluation.mapper.RuleConfigMapper;
 import com.ruoyi.evaluation.service.IRuleConfigService;
+import com.ruoyi.evaluation.support.EvaluationTitleUtils;
 
 @Service
 public class RuleConfigServiceImpl implements IRuleConfigService
 {
+    private static final BigDecimal DEFAULT_LOCKED_PASS_RATIO = BigDecimal.valueOf(60);
+
     @Autowired
     private RuleConfigMapper ruleConfigMapper;
+
+    @Autowired
+    private ActivityMapper activityMapper;
 
     @Autowired
     private ActivityCandidateMapper activityCandidateMapper;
@@ -47,6 +55,7 @@ public class RuleConfigServiceImpl implements IRuleConfigService
     public int insertRuleConfig(RuleConfig ruleConfig)
     {
         requireActivityId(ruleConfig == null ? null : ruleConfig.getActivityId());
+        requireConfigurableActivity(ruleConfig.getActivityId());
         validateRatio(ruleConfig);
         ruleConfig.setVoteType("PASS_REJECT");
         RuleConfig existing = ruleConfigMapper.selectRuleConfigByActivityId(ruleConfig.getActivityId());
@@ -61,14 +70,45 @@ public class RuleConfigServiceImpl implements IRuleConfigService
     @Override
     public int updateRuleConfig(RuleConfig ruleConfig)
     {
+        RuleConfig current = ruleConfig == null || ruleConfig.getId() == null ? null : ruleConfigMapper.selectRuleConfigById(ruleConfig.getId());
+        Long activityId = ruleConfig == null ? null : ruleConfig.getActivityId();
+        if (activityId == null && current != null)
+        {
+            activityId = current.getActivityId();
+            ruleConfig.setActivityId(activityId);
+        }
+        requireActivityId(activityId);
+        requireConfigurableActivity(activityId);
         validateRatio(ruleConfig);
         ruleConfig.setVoteType("PASS_REJECT");
         return ruleConfigMapper.updateRuleConfig(ruleConfig);
     }
     @Override
-    public int deleteRuleConfigByIds(Long[] ids) { return ruleConfigMapper.deleteRuleConfigByIds(ids); }
+    public int deleteRuleConfigByIds(Long[] ids)
+    {
+        if (ids != null)
+        {
+            for (Long id : ids)
+            {
+                RuleConfig ruleConfig = ruleConfigMapper.selectRuleConfigById(id);
+                if (ruleConfig != null)
+                {
+                    requireConfigurableActivity(ruleConfig.getActivityId());
+                }
+            }
+        }
+        return ruleConfigMapper.deleteRuleConfigByIds(ids);
+    }
     @Override
-    public int deleteRuleConfigById(Long id) { return ruleConfigMapper.deleteRuleConfigById(id); }
+    public int deleteRuleConfigById(Long id)
+    {
+        RuleConfig ruleConfig = ruleConfigMapper.selectRuleConfigById(id);
+        if (ruleConfig != null)
+        {
+            requireConfigurableActivity(ruleConfig.getActivityId());
+        }
+        return ruleConfigMapper.deleteRuleConfigById(id);
+    }
 
     @Override
     public List<Map<String, Object>> previewCandidateRange(Long activityId)
@@ -92,7 +132,7 @@ public class RuleConfigServiceImpl implements IRuleConfigService
         {
             sortCandidates(entry.getValue());
             int candidateCount = entry.getValue().size();
-            int maxPassCount = ratioCount(candidateCount, ruleConfig == null ? null : ruleConfig.getPassRatio());
+            int maxPassCount = maxPassCount(entry.getKey(), candidateCount, ruleConfig);
             Map<String, Object> row = buildRangeRow(entry.getKey(), entry.getValue(), maxPassCount,
                     ruleConfig == null ? null : ruleConfig.getPassRatio(),
                     ruleConfig == null ? null : ruleConfig.getRejectRatio(), settingByGroup.get(entry.getKey()));
@@ -139,6 +179,7 @@ public class RuleConfigServiceImpl implements IRuleConfigService
     public int applyCandidateRange(Long activityId, List<Map<String, Object>> confirmedRanges, String username)
     {
         requireActivityId(activityId);
+        requireConfigurableActivity(activityId);
         RuleConfig ruleConfig = ruleConfigMapper.selectRuleConfigByActivityId(activityId);
         Candidate query = new Candidate();
         query.setActivityId(activityId);
@@ -188,9 +229,9 @@ public class RuleConfigServiceImpl implements IRuleConfigService
         String[] keys = groupKey.split("\\|", -1);
         int candidateCount = candidates.size();
         int maxPass = Math.max(0, Math.min(maxPassCount, candidateCount));
-        RangeCounts counts = resolveRangeCounts(null, setting, maxPass, candidateCount, rejectRatio);
+        RangeCounts counts = resolveRangeCounts(groupKey, null, setting, maxPass, candidateCount, rejectRatio);
         int voteCount = Math.max(0, candidateCount - counts.lockedPassCount - counts.lockedRejectCount);
-        int voteRejectCount = Math.max(0, maxPass - counts.lockedPassCount - counts.lockedRejectCount);
+        int voteRejectCount = maxPass - counts.lockedPassCount - counts.lockedRejectCount;
         int voteEnd = candidateCount - counts.lockedRejectCount;
         String passRange = formatOrdinalRange(1, counts.lockedPassCount);
         String voteRange = formatOrdinalRange(counts.lockedPassCount + 1, voteEnd);
@@ -251,8 +292,8 @@ public class RuleConfigServiceImpl implements IRuleConfigService
         {
             Map<String, Object> row = confirmedByGroup.get(entry.getKey());
             int candidateCount = entry.getValue().size();
-            int maxPass = ratioCount(candidateCount, ruleConfig == null ? null : ruleConfig.getPassRatio());
-            RangeCounts counts = resolveRangeCounts(row, settingByGroup.get(entry.getKey()), maxPass, candidateCount,
+            int maxPass = maxPassCount(entry.getKey(), candidateCount, ruleConfig);
+            RangeCounts counts = resolveRangeCounts(entry.getKey(), row, settingByGroup.get(entry.getKey()), maxPass, candidateCount,
                     ruleConfig == null ? null : ruleConfig.getRejectRatio());
             validateRangeCounts(counts, maxPass, candidateCount);
             saveRangeSetting(activityId, entry.getKey(), counts, username);
@@ -274,16 +315,16 @@ public class RuleConfigServiceImpl implements IRuleConfigService
         {
             throw new ServiceException("锁定通过人数和锁定不通过人数不能大于候选人数");
         }
-        if (candidateCount > 0 && counts.lockedPassCount + counts.lockedRejectCount >= candidateCount)
-        {
-            throw new ServiceException("至少保留 1 名候选人进入投票范围");
-        }
     }
 
-    private RangeCounts resolveRangeCounts(Map<String, Object> row, ActivityRangeSetting setting, int maxPass,
+    private RangeCounts resolveRangeCounts(String groupKey, Map<String, Object> row, ActivityRangeSetting setting, int maxPass,
             int candidateCount, BigDecimal rejectRatio)
     {
-        int passCount = Math.min(maxPass, Math.round(maxPass * 0.6f));
+        if (isAutoPassGroup(groupKey))
+        {
+            return new RangeCounts(candidateCount, 0);
+        }
+        int passCount = Math.min(maxPass, ratioCount(candidateCount, DEFAULT_LOCKED_PASS_RATIO));
         int rejectCount = ratioCount(candidateCount, rejectRatio);
         if (setting != null)
         {
@@ -298,9 +339,9 @@ public class RuleConfigServiceImpl implements IRuleConfigService
         }
         passCount = clamp(passCount, 0, maxPass);
         rejectCount = clamp(rejectCount, 0, candidateCount);
-        if (passCount + rejectCount >= candidateCount)
+        if (passCount + rejectCount > candidateCount)
         {
-            rejectCount = Math.max(0, candidateCount - passCount - 1);
+            rejectCount = Math.max(0, candidateCount - passCount);
         }
         return new RangeCounts(passCount, rejectCount);
     }
@@ -374,7 +415,8 @@ public class RuleConfigServiceImpl implements IRuleConfigService
                 continue;
             }
             int candidateCount = entry.getValue().size();
-            int maxPass = Math.max(0, Math.min(parseRangeInteger(row.get("maxPassCount"), "最多通过人数"), candidateCount));
+            int maxPass = isAutoPassGroup(entry.getKey()) ? candidateCount
+                    : Math.max(0, Math.min(parseRangeInteger(row.get("maxPassCount"), "最多通过人数"), candidateCount));
             RangeCounts counts = new RangeCounts(
                     parseRangeInteger(firstPresent(row.get("lockedPassCount"), row.get("fixedPassCount")), "锁定通过人数"),
                     parseRangeInteger(firstPresent(row.get("lockedRejectCount"), row.get("fixedRejectCount")), "锁定不通过人数"));
@@ -390,6 +432,30 @@ public class RuleConfigServiceImpl implements IRuleConfigService
     private String rangeGroupKey(Candidate candidate)
     {
         return StringUtils.defaultString(candidate.getDepartment()) + "|" + appliedLevel(candidate);
+    }
+
+    private int maxPassCount(String groupKey, int candidateCount, RuleConfig ruleConfig)
+    {
+        if (isAutoPassGroup(groupKey))
+        {
+            return candidateCount;
+        }
+        return ratioCount(candidateCount, ruleConfig == null ? null : ruleConfig.getPassRatio());
+    }
+
+    private boolean isAutoPassGroup(String groupKey)
+    {
+        if (groupKey == null)
+        {
+            return false;
+        }
+        String[] keys = groupKey.split("\\|", -1);
+        return keys.length > 1 && isAutoPassLevel(keys[1]);
+    }
+
+    private boolean isAutoPassLevel(String level)
+    {
+        return EvaluationTitleUtils.isAutoPassLevel(level);
     }
 
     private String appliedLevel(Candidate candidate)
@@ -427,27 +493,7 @@ public class RuleConfigServiceImpl implements IRuleConfigService
 
     private int levelRank(String level)
     {
-        if ("正高级".equals(level) || "正高级工程师".equals(level))
-        {
-            return 1;
-        }
-        if ("副高级".equals(level) || "高级工程师".equals(level))
-        {
-            return 2;
-        }
-        if ("中级".equals(level) || "工程师".equals(level))
-        {
-            return 3;
-        }
-        if ("初级".equals(level) || "助理工程师".equals(level))
-        {
-            return 4;
-        }
-        if ("员级".equals(level) || "技术员".equals(level))
-        {
-            return 5;
-        }
-        return 99;
+        return EvaluationTitleUtils.levelRank(level);
     }
 
     private int groupRank(String department)
@@ -531,6 +577,20 @@ public class RuleConfigServiceImpl implements IRuleConfigService
         if (activityId == null)
         {
             throw new ServiceException("规则操作必须指定活动");
+        }
+    }
+
+    private void requireConfigurableActivity(Long activityId)
+    {
+        Activity activity = activityMapper.selectActivityById(activityId);
+        if (activity == null)
+        {
+            throw new ServiceException("Activity does not exist.");
+        }
+        String status = activity.getStatus();
+        if (!StringUtils.isEmpty(status) && !"CONFIGURED".equals(status) && !"DRAFT".equals(status))
+        {
+            throw new ServiceException("Activity rules can only be changed before publishing.");
         }
     }
 

@@ -1,0 +1,10 @@
+com\ruoyi\evaluation\service\impl\FinalEvaluationServiceImplTest.class
+com\ruoyi\evaluation\sql\FinalEvaluationSchemaMigrationTest.class
+com\ruoyi\evaluation\service\impl\VoteServiceImplTest.class
+com\ruoyi\evaluation\service\impl\ActivityServiceImplTest.class
+com\ruoyi\evaluation\service\impl\CandidateServiceImplTest.class
+com\ruoyi\evaluation\service\impl\VoterServiceImplTest.class
+com\ruoyi\evaluation\sql\ActivityCandidateThirdLevelDepartmentRepairSqlTest.class
+com\ruoyi\evaluation\service\impl\ExcelImportPreviewServiceTest.class
+com\ruoyi\evaluation\service\impl\ResultAggServiceImplTest.class
+com\ruoyi\evaluation\service\impl\RuleConfigServiceImplTest.class

@@ -65,6 +65,7 @@ public class VoterServiceImpl implements IVoterService
     {
         if (voter.getActivityId() != null)
         {
+            requireConfigurableActivity(voter.getActivityId());
             Voter poolVoter = ensurePoolVoter(voter, voter.getCreateBy());
             return insertSnapshot(voter.getActivityId(), poolVoter, "MANUAL", null, null, voter.getCreateBy());
         }
@@ -77,6 +78,7 @@ public class VoterServiceImpl implements IVoterService
     {
         if (voter.getActivityId() != null)
         {
+            requireConfigurableActivity(voter.getActivityId());
             return activityVoterMapper.updateVoterSnapshot(voter);
         }
         return voterMapper.updateVoter(voter);
@@ -89,11 +91,21 @@ public class VoterServiceImpl implements IVoterService
     public int deleteVoterById(Long id) { return voterMapper.deleteVoterById(id); }
 
     @Override
-    public int deleteVoterByActivityId(Long activityId) { return activityVoterMapper.deleteActivityVoterByActivityId(activityId); }
+    public int deleteVoterByActivityId(Long activityId)
+    {
+        requireConfigurableActivity(activityId);
+        return activityVoterMapper.deleteActivityVoterByActivityId(activityId);
+    }
 
     @Override
     public int regenerateVoteToken(Long id, String username)
     {
+        ActivityVoter existing = activityVoterMapper.selectActivityVoterById(id);
+        if (existing == null)
+        {
+            throw new ServiceException("Activity voter does not exist.");
+        }
+        requireConfigurableActivity(existing.getActivityId());
         ActivityVoter voter = new ActivityVoter();
         voter.setId(id);
         voter.setVoteToken(UUID.randomUUID().toString().replace("-", ""));
@@ -176,6 +188,7 @@ public class VoterServiceImpl implements IVoterService
         {
             throw new ServiceException("活动评委导入必须指定活动");
         }
+        requireConfigurableActivity(activityId);
         if (updateSupport)
         {
             activityVoterMapper.deleteActivityVoterByActivityId(activityId);
@@ -208,6 +221,7 @@ public class VoterServiceImpl implements IVoterService
         {
             throw new ServiceException("请选择活动");
         }
+        requireConfigurableActivity(activityId);
         if (CollectionUtils.isEmpty(ids))
         {
             throw new ServiceException("请选择评委资料");
@@ -237,6 +251,7 @@ public class VoterServiceImpl implements IVoterService
         {
             throw new ServiceException("请选择源活动和目标活动");
         }
+        requireConfigurableActivity(activityId);
         if (activityId.equals(sourceActivityId))
         {
             throw new ServiceException("不能复制当前活动自身");
@@ -345,5 +360,19 @@ public class VoterServiceImpl implements IVoterService
         }
         Integer maxImportSeq = voterMapper.selectMaxImportSeq();
         voter.setImportSeq((maxImportSeq == null ? 0 : maxImportSeq) + 1);
+    }
+
+    private void requireConfigurableActivity(Long activityId)
+    {
+        Activity activity = activityMapper.selectActivityById(activityId);
+        if (activity == null)
+        {
+            throw new ServiceException("Activity does not exist.");
+        }
+        String status = activity.getStatus();
+        if (!StringUtils.isEmpty(status) && !"CONFIGURED".equals(status) && !"DRAFT".equals(status))
+        {
+            throw new ServiceException("Activity voters can only be changed before publishing.");
+        }
     }
 }

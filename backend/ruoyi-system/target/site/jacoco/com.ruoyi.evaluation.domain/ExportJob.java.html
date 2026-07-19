@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExportJob.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.domain</a> &gt; <span class="el_source">ExportJob.java</span></div><h1>ExportJob.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.domain;
+
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.ruoyi.common.core.domain.BaseEntity;
+
+<span class="fc" id="L7">public class ExportJob extends BaseEntity</span>
+{
+    private static final long serialVersionUID = 1L;
+
+    private Long id;
+    private Long activityId;
+    private String jobType;
+    private String exportType;
+    private String status;
+    private String fileName;
+    private String fileUrl;
+    private String generatedBy;
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date generatedAt;
+    private String errorMessage;
+
+<span class="nc" id="L23">    public Long getId() { return id; }</span>
+<span class="nc" id="L24">    public void setId(Long id) { this.id = id; }</span>
+<span class="nc" id="L25">    public Long getActivityId() { return activityId; }</span>
+<span class="fc" id="L26">    public void setActivityId(Long activityId) { this.activityId = activityId; }</span>
+<span class="nc" id="L27">    public String getJobType() { return jobType; }</span>
+<span class="fc" id="L28">    public void setJobType(String jobType) { this.jobType = jobType; }</span>
+<span class="nc" id="L29">    public String getExportType() { return exportType; }</span>
+<span class="fc" id="L30">    public void setExportType(String exportType) { this.exportType = exportType; }</span>
+<span class="fc" id="L31">    public String getStatus() { return status; }</span>
+<span class="fc" id="L32">    public void setStatus(String status) { this.status = status; }</span>
+<span class="fc" id="L33">    public String getFileName() { return fileName; }</span>
+<span class="fc" id="L34">    public void setFileName(String fileName) { this.fileName = fileName; }</span>
+<span class="nc" id="L35">    public String getFileUrl() { return fileUrl; }</span>
+<span class="fc" id="L36">    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }</span>
+<span class="nc" id="L37">    public String getGeneratedBy() { return generatedBy; }</span>
+<span class="fc" id="L38">    public void setGeneratedBy(String generatedBy) { this.generatedBy = generatedBy; }</span>
+<span class="nc" id="L39">    public Date getGeneratedAt() { return generatedAt; }</span>
+<span class="nc" id="L40">    public void setGeneratedAt(Date generatedAt) { this.generatedAt = generatedAt; }</span>
+<span class="nc" id="L41">    public String getErrorMessage() { return errorMessage; }</span>
+<span class="fc" id="L42">    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

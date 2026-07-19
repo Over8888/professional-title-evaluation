@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SysPostServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.system.service.impl</a> &gt; <span class="el_source">SysPostServiceImpl.java</span></div><h1>SysPostServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.system.service.impl;
+
+import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import com.ruoyi.common.constant.UserConstants;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.system.domain.SysPost;
+import com.ruoyi.system.mapper.SysPostMapper;
+import com.ruoyi.system.mapper.SysUserPostMapper;
+import com.ruoyi.system.service.ISysPostService;
+
+/**
+ * 岗位信息 服务层处理
+ * 
+ * @author 职称评审系统项目组
+ */
+@Service
+<span class="nc" id="L20">public class SysPostServiceImpl implements ISysPostService</span>
+{
+    @Autowired
+    private SysPostMapper postMapper;
+
+    @Autowired
+    private SysUserPostMapper userPostMapper;
+
+    /**
+     * 查询岗位信息集合
+     * 
+     * @param post 岗位信息
+     * @return 岗位信息集合
+     */
+    @Override
+    public List&lt;SysPost&gt; selectPostList(SysPost post)
+    {
+<span class="nc" id="L37">        return postMapper.selectPostList(post);</span>
+    }
+
+    /**
+     * 查询所有岗位
+     * 
+     * @return 岗位列表
+     */
+    @Override
+    public List&lt;SysPost&gt; selectPostAll()
+    {
+<span class="nc" id="L48">        return postMapper.selectPostAll();</span>
+    }
+
+    /**
+     * 通过岗位ID查询岗位信息
+     * 
+     * @param postId 岗位ID
+     * @return 角色对象信息
+     */
+    @Override
+    public SysPost selectPostById(Long postId)
+    {
+<span class="nc" id="L60">        return postMapper.selectPostById(postId);</span>
+    }
+
+    /**
+     * 根据用户ID获取岗位选择框列表
+     * 
+     * @param userId 用户ID
+     * @return 选中岗位ID列表
+     */
+    @Override
+    public List&lt;Long&gt; selectPostListByUserId(Long userId)
+    {
+<span class="nc" id="L72">        return postMapper.selectPostListByUserId(userId);</span>
+    }
+
+    /**
+     * 校验岗位名称是否唯一
+     * 
+     * @param post 岗位信息
+     * @return 结果
+     */
+    @Override
+    public boolean checkPostNameUnique(SysPost post)
+    {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        Long postId = StringUtils.isNull(post.getPostId()) ? -1L : post.getPostId();</span>
+<span class="nc" id="L85">        SysPost info = postMapper.checkPostNameUnique(post.getPostName());</span>
+<span class="nc bnc" id="L86" title="All 4 branches missed.">        if (StringUtils.isNotNull(info) &amp;&amp; info.getPostId().longValue() != postId.longValue())</span>
+        {
+<span class="nc" id="L88">            return UserConstants.NOT_UNIQUE;</span>
+        }
+<span class="nc" id="L90">        return UserConstants.UNIQUE;</span>
+    }
+
+    /**
+     * 校验岗位编码是否唯一
+     * 
+     * @param post 岗位信息
+     * @return 结果
+     */
+    @Override
+    public boolean checkPostCodeUnique(SysPost post)
+    {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        Long postId = StringUtils.isNull(post.getPostId()) ? -1L : post.getPostId();</span>
+<span class="nc" id="L103">        SysPost info = postMapper.checkPostCodeUnique(post.getPostCode());</span>
+<span class="nc bnc" id="L104" title="All 4 branches missed.">        if (StringUtils.isNotNull(info) &amp;&amp; info.getPostId().longValue() != postId.longValue())</span>
+        {
+<span class="nc" id="L106">            return UserConstants.NOT_UNIQUE;</span>
+        }
+<span class="nc" id="L108">        return UserConstants.UNIQUE;</span>
+    }
+
+    /**
+     * 通过岗位ID查询岗位使用数量
+     * 
+     * @param postId 岗位ID
+     * @return 结果
+     */
+    @Override
+    public int countUserPostById(Long postId)
+    {
+<span class="nc" id="L120">        return userPostMapper.countUserPostById(postId);</span>
+    }
+
+    /**
+     * 删除岗位信息
+     * 
+     * @param postId 岗位ID
+     * @return 结果
+     */
+    @Override
+    public int deletePostById(Long postId)
+    {
+<span class="nc" id="L132">        return postMapper.deletePostById(postId);</span>
+    }
+
+    /**
+     * 批量删除岗位信息
+     * 
+     * @param postIds 需要删除的岗位ID
+     * @return 结果
+     */
+    @Override
+    public int deletePostByIds(Long[] postIds)
+    {
+<span class="nc bnc" id="L144" title="All 2 branches missed.">        for (Long postId : postIds)</span>
+        {
+<span class="nc" id="L146">            SysPost post = selectPostById(postId);</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">            if (countUserPostById(postId) &gt; 0)</span>
+            {
+<span class="nc" id="L149">                throw new ServiceException(String.format(&quot;%1$s已分配,不能删除&quot;, post.getPostName()));</span>
+            }
+        }
+<span class="nc" id="L152">        return postMapper.deletePostByIds(postIds);</span>
+    }
+
+    /**
+     * 新增保存岗位信息
+     * 
+     * @param post 岗位信息
+     * @return 结果
+     */
+    @Override
+    public int insertPost(SysPost post)
+    {
+<span class="nc" id="L164">        return postMapper.insertPost(post);</span>
+    }
+
+    /**
+     * 修改保存岗位信息
+     * 
+     * @param post 岗位信息
+     * @return 结果
+     */
+    @Override
+    public int updatePost(SysPost post)
+    {
+<span class="nc" id="L176">        return postMapper.updatePost(post);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Candidate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.domain</a> &gt; <span class="el_source">Candidate.java</span></div><h1>Candidate.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.domain;
+
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.annotation.Excel.ColumnType;
+import com.ruoyi.common.core.domain.BaseEntity;
+
+<span class="fc" id="L9">public class Candidate extends BaseEntity</span>
+{
+    private static final long serialVersionUID = 1L;
+
+    private Long id;
+    private Long candidateId;
+    private Long activityId;
+    private Long sourceActivityId;
+    private Long sourceActivityCandidateId;
+    private String sourceType;
+
+    @Excel(name = &quot;序号&quot;)
+    private Integer importSeq;
+
+    @Excel(name = &quot;姓名&quot;)
+    private String name;
+
+    private String gender;
+
+    @JsonFormat(pattern = &quot;yyyy-MM-dd&quot;)
+    private Date birthDate;
+
+    private String education;
+
+    @Excel(name = &quot;单位&quot;)
+    private String company;
+
+    private String firstLevelDepartment;
+
+    @Excel(name = &quot;二级部门&quot;)
+    private String department;
+
+    @Excel(name = &quot;三级部门&quot;)
+    private String thirdLevelDepartment;
+
+    @Excel(name = &quot;岗位&quot;)
+    private String position;
+
+    @Excel(name = &quot;身份证号&quot;, cellType = ColumnType.TEXT)
+    private String idCard;
+
+    @Excel(name = &quot;当前等级&quot;)
+    private String currentLevel;
+
+    @Excel(name = &quot;申报等级&quot;)
+    private String appliedLevel;
+
+    private String fixedType;
+    private Boolean pool;
+    private String lastYearAssessment;
+    private String evaluationScore;
+
+<span class="fc" id="L61">    public Long getId() { return id; }</span>
+<span class="fc" id="L62">    public void setId(Long id) { this.id = id; }</span>
+<span class="nc" id="L63">    public Long getCandidateId() { return candidateId; }</span>
+<span class="nc" id="L64">    public void setCandidateId(Long candidateId) { this.candidateId = candidateId; }</span>
+<span class="nc" id="L65">    public Long getActivityId() { return activityId; }</span>
+<span class="fc" id="L66">    public void setActivityId(Long activityId) { this.activityId = activityId; }</span>
+<span class="nc" id="L67">    public Long getSourceActivityId() { return sourceActivityId; }</span>
+<span class="nc" id="L68">    public void setSourceActivityId(Long sourceActivityId) { this.sourceActivityId = sourceActivityId; }</span>
+<span class="nc" id="L69">    public Long getSourceActivityCandidateId() { return sourceActivityCandidateId; }</span>
+<span class="nc" id="L70">    public void setSourceActivityCandidateId(Long sourceActivityCandidateId) { this.sourceActivityCandidateId = sourceActivityCandidateId; }</span>
+<span class="nc" id="L71">    public String getSourceType() { return sourceType; }</span>
+<span class="nc" id="L72">    public void setSourceType(String sourceType) { this.sourceType = sourceType; }</span>
+<span class="fc" id="L73">    public Integer getImportSeq() { return importSeq; }</span>
+<span class="fc" id="L74">    public void setImportSeq(Integer importSeq) { this.importSeq = importSeq; }</span>
+<span class="fc" id="L75">    public String getName() { return name; }</span>
+<span class="fc" id="L76">    public void setName(String name) { this.name = name; }</span>
+<span class="fc" id="L77">    public String getGender() { return gender; }</span>
+<span class="fc" id="L78">    public void setGender(String gender) { this.gender = gender; }</span>
+<span class="fc" id="L79">    public Date getBirthDate() { return birthDate; }</span>
+<span class="fc" id="L80">    public void setBirthDate(Date birthDate) { this.birthDate = birthDate; }</span>
+<span class="fc" id="L81">    public String getEducation() { return education; }</span>
+<span class="fc" id="L82">    public void setEducation(String education) { this.education = education; }</span>
+<span class="fc" id="L83">    public String getCompany() { return company; }</span>
+<span class="fc" id="L84">    public void setCompany(String company) { this.company = company; }</span>
+<span class="fc" id="L85">    public String getFirstLevelDepartment() { return firstLevelDepartment; }</span>
+<span class="fc" id="L86">    public void setFirstLevelDepartment(String firstLevelDepartment) { this.firstLevelDepartment = firstLevelDepartment; }</span>
+<span class="fc" id="L87">    public String getDepartment() { return department; }</span>
+<span class="fc" id="L88">    public void setDepartment(String department) { this.department = department; }</span>
+<span class="fc" id="L89">    public String getThirdLevelDepartment() { return thirdLevelDepartment; }</span>
+<span class="fc" id="L90">    public void setThirdLevelDepartment(String thirdLevelDepartment) { this.thirdLevelDepartment = thirdLevelDepartment; }</span>
+<span class="fc" id="L91">    public String getPosition() { return position; }</span>
+<span class="fc" id="L92">    public void setPosition(String position) { this.position = position; }</span>
+<span class="fc" id="L93">    public String getIdCard() { return idCard; }</span>
+<span class="fc" id="L94">    public void setIdCard(String idCard) { this.idCard = idCard; }</span>
+<span class="fc" id="L95">    public String getCurrentLevel() { return currentLevel; }</span>
+<span class="fc" id="L96">    public void setCurrentLevel(String currentLevel) { this.currentLevel = currentLevel; }</span>
+<span class="fc" id="L97">    public String getAppliedLevel() { return appliedLevel; }</span>
+<span class="fc" id="L98">    public void setAppliedLevel(String appliedLevel) { this.appliedLevel = appliedLevel; }</span>
+<span class="fc" id="L99">    public String getFixedType() { return fixedType; }</span>
+<span class="fc" id="L100">    public void setFixedType(String fixedType) { this.fixedType = fixedType; }</span>
+<span class="nc" id="L101">    public Boolean getPool() { return pool; }</span>
+<span class="nc" id="L102">    public void setPool(Boolean pool) { this.pool = pool; }</span>
+<span class="fc" id="L103">    public String getLastYearAssessment() { return lastYearAssessment; }</span>
+<span class="fc" id="L104">    public void setLastYearAssessment(String lastYearAssessment) { this.lastYearAssessment = lastYearAssessment; }</span>
+<span class="fc" id="L105">    public String getEvaluationScore() { return evaluationScore; }</span>
+<span class="fc" id="L106">    public void setEvaluationScore(String evaluationScore) { this.evaluationScore = evaluationScore; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

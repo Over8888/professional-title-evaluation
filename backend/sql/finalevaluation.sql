@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `FinalEvaluation` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `activity_id` bigint NOT NULL,
+  `activity_candidate_id` bigint NOT NULL,
+  `final_result` varchar(20) NOT NULL,
+  `confirm_status` varchar(20) NOT NULL DEFAULT 'DRAFT',
+  `confirmed_by` varchar(64) DEFAULT NULL,
+  `confirmed_at` datetime DEFAULT NULL,
+  `signed_by` varchar(200) DEFAULT NULL,
+  `signature_status` varchar(20) DEFAULT NULL,
+  `confirm_remark` varchar(1000) DEFAULT NULL,
+  `create_by` varchar(64) DEFAULT NULL,
+  `create_time` datetime DEFAULT NULL,
+  `update_by` varchar(64) DEFAULT NULL,
+  `update_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_FinalEvaluation_candidate` (`activity_id`, `activity_candidate_id`),
+  KEY `idx_FinalEvaluation_status` (`activity_id`, `confirm_status`, `final_result`),
+  CONSTRAINT `fk_FinalEvaluation_Activity` FOREIGN KEY (`activity_id`) REFERENCES `Activity` (`id`),
+  CONSTRAINT `fk_FinalEvaluation_ActivityCandidate` FOREIGN KEY (`activity_candidate_id`) REFERENCES `ActivityCandidate` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

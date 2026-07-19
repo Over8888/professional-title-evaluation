@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ActivityServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.service.impl</a> &gt; <span class="el_source">ActivityServiceImpl.java</span></div><h1>ActivityServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.service.impl;
+
+import java.util.List;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.math.BigDecimal;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.evaluation.domain.Activity;
+import com.ruoyi.evaluation.domain.ActivityCreateRequest;
+import com.ruoyi.evaluation.domain.RuleConfig;
+import com.ruoyi.evaluation.mapper.ActivityCandidateMapper;
+import com.ruoyi.evaluation.mapper.ActivityVoterMapper;
+import com.ruoyi.evaluation.mapper.ActivityMapper;
+import com.ruoyi.evaluation.mapper.FinalEvaluationMapper;
+import com.ruoyi.evaluation.mapper.ResultAggMapper;
+import com.ruoyi.evaluation.mapper.RuleConfigMapper;
+import com.ruoyi.evaluation.mapper.VoteMapper;
+import com.ruoyi.evaluation.service.IActivityService;
+
+@Service
+<span class="fc" id="L29">public class ActivityServiceImpl implements IActivityService</span>
+{
+    @Autowired
+    private ActivityMapper activityMapper;
+
+    @Autowired
+    private RuleConfigMapper ruleConfigMapper;
+
+    @Autowired
+    private ActivityCandidateMapper activityCandidateMapper;
+
+    @Autowired
+    private ActivityVoterMapper activityVoterMapper;
+
+    @Autowired
+    private VoteMapper voteMapper;
+
+    @Autowired
+    private ResultAggMapper resultAggMapper;
+
+    @Autowired
+    private FinalEvaluationMapper finalEvaluationMapper;
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List&lt;Activity&gt; selectActivityList(Activity activity)
+    {
+<span class="nc" id="L56">        syncActivityStatusByTime();</span>
+<span class="nc" id="L57">        return activityMapper.selectActivityList(activity);</span>
+    }
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Activity selectActivityById(Long id)
+    {
+<span class="nc" id="L63">        syncActivityStatusByTime();</span>
+<span class="nc" id="L64">        return activityMapper.selectActivityById(id);</span>
+    }
+    @Override
+    public int insertActivity(Activity activity)
+    {
+<span class="nc" id="L69">        validateActivityTime(activity);</span>
+<span class="nc" id="L70">        validateSupportedType(activity.getType());</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        if (StringUtils.isEmpty(activity.getStatus())) { activity.setStatus(&quot;CONFIGURED&quot;); }</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">        if (StringUtils.isEmpty(activity.getType())) { activity.setType(&quot;TITLE_REVIEW&quot;); }</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if (StringUtils.isEmpty(activity.getArchived())) { activity.setArchived(&quot;0&quot;); }</span>
+<span class="nc" id="L74">        return activityMapper.insertActivity(activity);</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Activity createWithRule(ActivityCreateRequest request, String username)
+    {
+<span class="nc bnc" id="L81" title="All 6 branches missed.">        if (request == null || request.getActivity() == null || request.getRuleConfig() == null)</span>
+        {
+<span class="nc" id="L83">            throw new ServiceException(&quot;创建活动必须同时提交活动信息和规则配置&quot;);</span>
+        }
+<span class="nc" id="L85">        Activity activity = request.getActivity();</span>
+<span class="nc" id="L86">        activity.setCreatedBy(username);</span>
+<span class="nc" id="L87">        activity.setStatus(&quot;CONFIGURED&quot;);</span>
+<span class="nc" id="L88">        validateSupportedType(activity.getType());</span>
+<span class="nc" id="L89">        validateRuleConfig(request.getRuleConfig());</span>
+<span class="nc" id="L90">        insertActivity(activity);</span>
+<span class="nc" id="L91">        RuleConfig ruleConfig = request.getRuleConfig();</span>
+<span class="nc" id="L92">        ruleConfig.setActivityId(activity.getId());</span>
+<span class="nc" id="L93">        ruleConfig.setVoteType(&quot;PASS_REJECT&quot;);</span>
+<span class="nc" id="L94">        ruleConfig.setCreateBy(username);</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (ruleConfigMapper.selectRuleConfigByActivityId(activity.getId()) == null)</span>
+        {
+<span class="nc" id="L97">            ruleConfigMapper.insertRuleConfig(ruleConfig);</span>
+        }
+        else
+        {
+<span class="nc" id="L101">            ruleConfigMapper.updateRuleConfig(ruleConfig);</span>
+        }
+<span class="nc" id="L103">        return activity;</span>
+    }
+
+    @Override
+    public int updateActivity(Activity activity)
+    {
+<span class="nc" id="L109">        validateActivityTime(activity);</span>
+<span class="nc" id="L110">        validateSupportedType(activity.getType());</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">        if (StringUtils.isNotEmpty(activity.getStatus()))</span>
+        {
+<span class="nc" id="L113">            Activity current = activityMapper.selectActivityById(activity.getId());</span>
+<span class="nc bnc" id="L114" title="All 4 branches missed.">            if (current != null &amp;&amp; !current.getStatus().equals(activity.getStatus()))</span>
+            {
+<span class="nc bnc" id="L116" title="All 2 branches missed.">                if (&quot;CALCULATED&quot;.equals(activity.getStatus()))</span>
+                {
+<span class="nc" id="L118">                    throw new ServiceException(&quot;Use /evaluation/result/calculate/{activityId} to calculate results.&quot;);</span>
+                }
+<span class="nc" id="L120">                validateStatusTransition(current, activity.getStatus());</span>
+            }
+        }
+<span class="nc" id="L123">        return activityMapper.updateActivity(activity);</span>
+    }
+    @Override
+    public int updateActivityStatus(Long id, String status, String username)
+    {
+<span class="fc" id="L128">        Activity current = activityMapper.selectActivityById(id);</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        if (&quot;CALCULATED&quot;.equals(status))</span>
+        {
+<span class="nc" id="L131">            throw new ServiceException(&quot;Use /evaluation/result/calculate/{activityId} to calculate results.&quot;);</span>
+        }
+<span class="fc" id="L133">        validateStatusTransition(current, status);</span>
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">        if (&quot;CLOSED&quot;.equals(status))</span>
+        {
+<span class="fc" id="L136">            validateAllVotersDone(id);</span>
+        }
+<span class="fc" id="L138">        Activity activity = new Activity();</span>
+<span class="fc" id="L139">        activity.setId(id);</span>
+<span class="fc" id="L140">        activity.setStatus(status);</span>
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">        if (&quot;PUBLISHED&quot;.equals(status))</span>
+        {
+<span class="nc" id="L143">            activity.setPublishTime(new java.util.Date());</span>
+        }
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        if (&quot;CLOSED&quot;.equals(status))</span>
+        {
+<span class="fc" id="L147">            activity.setEndTime(new java.util.Date());</span>
+        }
+<span class="fc" id="L149">        activity.setUpdatedBy(username);</span>
+<span class="fc" id="L150">        return activityMapper.updateActivity(activity);</span>
+    }
+
+    @Override
+    public Map&lt;String, Object&gt; publishActivity(Long id, String username, String requestBaseUrl)
+    {
+<span class="fc" id="L156">        Activity current = activityMapper.selectActivityById(id);</span>
+<span class="fc" id="L157">        validateStatusTransition(current, &quot;PUBLISHED&quot;);</span>
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        boolean noVoteRequired = activityCandidateMapper.countVoteCandidatesByActivityId(id) == 0;</span>
+<span class="fc" id="L159">        Activity activity = new Activity();</span>
+<span class="fc" id="L160">        activity.setId(id);</span>
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        activity.setStatus(noVoteRequired ? &quot;CLOSED&quot; : resolvePublishedStatus(current));</span>
+<span class="fc" id="L162">        activity.setPublishTime(new java.util.Date());</span>
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">        if (noVoteRequired)</span>
+        {
+<span class="fc" id="L165">            activity.setEndTime(new java.util.Date());</span>
+        }
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        if (StringUtils.isEmpty(current.getVoteEntryKey()))</span>
+        {
+<span class="fc" id="L169">            activity.setVoteEntryKey(UUID.randomUUID().toString().replace(&quot;-&quot;, &quot;&quot;));</span>
+        }
+<span class="fc" id="L171">        activity.setUpdatedBy(username);</span>
+<span class="fc" id="L172">        activityMapper.updateActivity(activity);</span>
+<span class="fc" id="L173">        Activity published = activityMapper.selectActivityById(id);</span>
+<span class="fc" id="L174">        Map&lt;String, Object&gt; data = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L175">        data.put(&quot;activityId&quot;, published.getId());</span>
+<span class="fc" id="L176">        data.put(&quot;status&quot;, published.getStatus());</span>
+<span class="fc" id="L177">        data.put(&quot;noVoteRequired&quot;, noVoteRequired);</span>
+<span class="fc" id="L178">        data.put(&quot;publishedAt&quot;, published.getPublishTime());</span>
+<span class="fc" id="L179">        data.put(&quot;voteEntryKey&quot;, published.getVoteEntryKey());</span>
+<span class="fc" id="L180">        data.put(&quot;voteUrl&quot;, requestBaseUrl + &quot;/vote/activity/&quot; + published.getVoteEntryKey());</span>
+<span class="fc" id="L181">        data.put(&quot;voteLinksUrl&quot;, requestBaseUrl + &quot;/evaluation/voter/activity/&quot; + id + &quot;/links&quot;);</span>
+<span class="fc" id="L182">        data.put(&quot;message&quot;, &quot;请复制活动投票入口，评委进入后通过姓名和工号确认身份&quot;);</span>
+<span class="fc" id="L183">        return data;</span>
+    }
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deleteActivityByIds(Long[] ids)
+    {
+<span class="nc bnc" id="L189" title="All 4 branches missed.">        if (ids == null || ids.length == 0)</span>
+        {
+<span class="nc" id="L191">            return 0;</span>
+        }
+<span class="nc" id="L193">        int rows = 0;</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">        for (Long id : ids)</span>
+        {
+<span class="nc" id="L196">            rows += deleteActivityById(id);</span>
+        }
+<span class="nc" id="L198">        return rows;</span>
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deleteActivityById(Long id)
+    {
+<span class="nc" id="L205">        Activity activity = activityMapper.selectActivityById(id);</span>
+<span class="nc" id="L206">        validateDeleteReady(activity);</span>
+<span class="nc" id="L207">        voteMapper.deleteVoteByActivityId(id);</span>
+<span class="nc" id="L208">        finalEvaluationMapper.deleteFinalEvaluationByActivityId(id);</span>
+<span class="nc" id="L209">        resultAggMapper.deleteResultAggByActivityId(id);</span>
+<span class="nc" id="L210">        activityVoterMapper.deleteActivityVoterByActivityId(id);</span>
+<span class="nc" id="L211">        activityCandidateMapper.deleteActivityCandidateByActivityId(id);</span>
+<span class="nc" id="L212">        ruleConfigMapper.deleteRuleConfigByActivityId(id);</span>
+<span class="nc" id="L213">        return activityMapper.deleteActivityById(id);</span>
+    }
+
+    private void validateStatusTransition(Activity current, String targetStatus)
+    {
+<span class="pc bpc" id="L218" title="1 of 2 branches missed.">        if (current == null)</span>
+        {
+<span class="nc" id="L220">            throw new ServiceException(&quot;活动不存在&quot;);</span>
+        }
+<span class="fc" id="L222">        String currentStatus = StringUtils.defaultIfEmpty(current.getStatus(), &quot;DRAFT&quot;);</span>
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">        if (currentStatus.equals(targetStatus))</span>
+        {
+<span class="nc" id="L225">            return;</span>
+        }
+<span class="fc" id="L227">        Set&lt;String&gt; allowed = allowedNextStatuses(currentStatus);</span>
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">        if (!allowed.contains(targetStatus))</span>
+        {
+<span class="nc" id="L230">            throw new ServiceException(&quot;活动状态不允许从 &quot; + currentStatus + &quot; 变更为 &quot; + targetStatus);</span>
+        }
+<span class="fc bfc" id="L232" title="All 2 branches covered.">        if (&quot;PUBLISHED&quot;.equals(targetStatus))</span>
+        {
+<span class="fc" id="L234">            validatePublishReady(current.getId());</span>
+        }
+<span class="pc bpc" id="L236" title="1 of 4 branches missed.">        if (&quot;CLOSED&quot;.equals(targetStatus) || &quot;CALCULATED&quot;.equals(targetStatus))</span>
+        {
+<span class="fc" id="L238">            validateAllVotersDone(current.getId());</span>
+        }
+<span class="fc" id="L240">    }</span>
+
+    private void syncActivityStatusByTime()
+    {
+<span class="nc" id="L244">        activityMapper.updateExpiredActivities();</span>
+<span class="nc" id="L245">        activityMapper.updateStartedActivities();</span>
+<span class="nc" id="L246">    }</span>
+
+    private String resolvePublishedStatus(Activity activity)
+    {
+<span class="nc" id="L250">        java.util.Date now = new java.util.Date();</span>
+<span class="nc bnc" id="L251" title="All 4 branches missed.">        if (activity.getEndTime() != null &amp;&amp; !activity.getEndTime().after(now))</span>
+        {
+<span class="nc" id="L253">            return &quot;CLOSED&quot;;</span>
+        }
+<span class="nc bnc" id="L255" title="All 4 branches missed.">        if (activity.getStartTime() != null &amp;&amp; !activity.getStartTime().after(now))</span>
+        {
+<span class="nc" id="L257">            return &quot;VOTING&quot;;</span>
+        }
+<span class="nc" id="L259">        return &quot;PUBLISHED&quot;;</span>
+    }
+
+    private Set&lt;String&gt; allowedNextStatuses(String currentStatus)
+    {
+<span class="pc bpc" id="L264" title="1 of 2 branches missed.">        if (&quot;DRAFT&quot;.equals(currentStatus))</span>
+        {
+<span class="nc" id="L266">            return new HashSet&lt;&gt;(Arrays.asList(&quot;CONFIGURED&quot;, &quot;PUBLISHED&quot;));</span>
+        }
+<span class="fc bfc" id="L268" title="All 2 branches covered.">        if (&quot;CONFIGURED&quot;.equals(currentStatus))</span>
+        {
+<span class="fc" id="L270">            return new HashSet&lt;&gt;(Arrays.asList(&quot;PUBLISHED&quot;));</span>
+        }
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">        if (&quot;PUBLISHED&quot;.equals(currentStatus))</span>
+        {
+<span class="fc" id="L274">            return new HashSet&lt;&gt;(Arrays.asList(&quot;VOTING&quot;, &quot;CLOSED&quot;));</span>
+        }
+<span class="nc bnc" id="L276" title="All 2 branches missed.">        if (&quot;VOTING&quot;.equals(currentStatus))</span>
+        {
+<span class="nc" id="L278">            return new HashSet&lt;&gt;(Arrays.asList(&quot;CLOSED&quot;));</span>
+        }
+<span class="nc bnc" id="L280" title="All 2 branches missed.">        if (&quot;CLOSED&quot;.equals(currentStatus))</span>
+        {
+<span class="nc" id="L282">            return new HashSet&lt;&gt;(Arrays.asList(&quot;CALCULATED&quot;));</span>
+        }
+<span class="nc bnc" id="L284" title="All 2 branches missed.">        if (&quot;CALCULATED&quot;.equals(currentStatus))</span>
+        {
+<span class="nc" id="L286">            return new HashSet&lt;&gt;(Arrays.asList(&quot;CONFIRMED&quot;));</span>
+        }
+<span class="nc bnc" id="L288" title="All 4 branches missed.">        if (&quot;CONFIRMED&quot;.equals(currentStatus) || &quot;EXPORTED&quot;.equals(currentStatus))</span>
+        {
+<span class="nc" id="L290">            return new HashSet&lt;&gt;(Arrays.asList(&quot;ARCHIVED&quot;));</span>
+        }
+<span class="nc" id="L292">        return new HashSet&lt;&gt;();</span>
+    }
+
+    private void validatePublishReady(Long activityId)
+    {
+<span class="fc" id="L297">        Activity activity = activityMapper.selectActivityById(activityId);</span>
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">        if (activity == null)</span>
+        {
+<span class="nc" id="L300">            throw new ServiceException(&quot;活动不存在&quot;);</span>
+        }
+<span class="pc bpc" id="L302" title="2 of 4 branches missed.">        if (activity.getStartTime() == null || activity.getEndTime() == null)</span>
+        {
+<span class="nc" id="L304">            throw new ServiceException(&quot;发布前必须配置活动开始时间和结束时间&quot;);</span>
+        }
+<span class="fc" id="L306">        validateActivityTime(activity);</span>
+<span class="pc bpc" id="L307" title="1 of 2 branches missed.">        if (ruleConfigMapper.selectRuleConfigByActivityId(activityId) == null)</span>
+        {
+<span class="nc" id="L309">            throw new ServiceException(&quot;发布前必须先保存规则配置&quot;);</span>
+        }
+<span class="pc bpc" id="L311" title="1 of 2 branches missed.">        if (activityCandidateMapper.countActivityCandidateByActivityId(activityId) == 0)</span>
+        {
+<span class="nc" id="L313">            throw new ServiceException(&quot;发布前必须先选择或导入候选人&quot;);</span>
+        }
+<span class="pc bpc" id="L315" title="1 of 2 branches missed.">        if (activityCandidateMapper.countUnconfirmedByActivityId(activityId) &gt; 0)</span>
+        {
+<span class="nc" id="L317">            throw new ServiceException(&quot;Apply candidate range before publishing.&quot;);</span>
+        }
+<span class="fc bfc" id="L319" title="All 2 branches covered.">        if (activityCandidateMapper.countVoteCandidatesByActivityId(activityId) &gt; 0</span>
+<span class="pc bpc" id="L320" title="1 of 2 branches missed.">                &amp;&amp; activityVoterMapper.countActivityVoterByActivityId(activityId) == 0)</span>
+        {
+<span class="fc" id="L322">            throw new ServiceException(&quot;发布前必须先选择或导入评委&quot;);</span>
+        }
+<span class="fc" id="L324">    }</span>
+
+    private void validateDeleteReady(Activity activity)
+    {
+<span class="nc bnc" id="L328" title="All 2 branches missed.">        if (activity == null)</span>
+        {
+<span class="nc" id="L330">            throw new ServiceException(&quot;活动不存在&quot;);</span>
+        }
+<span class="nc bnc" id="L332" title="All 2 branches missed.">        if (&quot;VOTING&quot;.equals(activity.getStatus()))</span>
+        {
+<span class="nc" id="L334">            throw new ServiceException(&quot;投票中的活动需要先结束才能删除&quot;);</span>
+        }
+<span class="nc" id="L336">    }</span>
+
+    private void validateAllVotersDone(Long activityId)
+    {
+<span class="fc bfc" id="L340" title="All 2 branches covered.">        if (activityCandidateMapper.countVoteCandidatesByActivityId(activityId) == 0)</span>
+        {
+<span class="fc" id="L342">            return;</span>
+        }
+<span class="fc" id="L344">        int total = activityVoterMapper.countActivityVoterByActivityId(activityId);</span>
+<span class="fc" id="L345">        int done = activityVoterMapper.countDoneByActivityId(activityId);</span>
+<span class="pc bpc" id="L346" title="1 of 2 branches missed.">        if (total &lt;= 0)</span>
+        {
+<span class="nc" id="L348">            throw new ServiceException(&quot;当前活动没有评委，不能结束投票&quot;);</span>
+        }
+<span class="pc bpc" id="L350" title="1 of 2 branches missed.">        if (done != total)</span>
+        {
+<span class="fc" id="L352">            throw new ServiceException(&quot;仍有 &quot; + (total - done) + &quot; 名评委未提交，不能结束投票&quot;);</span>
+        }
+<span class="nc" id="L354">    }</span>
+
+    private void validateActivityTime(Activity activity)
+    {
+<span class="pc bpc" id="L358" title="3 of 6 branches missed.">        if (activity == null || activity.getStartTime() == null || activity.getEndTime() == null)</span>
+        {
+<span class="nc" id="L360">            return;</span>
+        }
+<span class="pc bpc" id="L362" title="1 of 2 branches missed.">        if (activity.getEndTime().before(activity.getStartTime()))</span>
+        {
+<span class="nc" id="L364">            throw new ServiceException(&quot;活动结束时间不能早于开始时间&quot;);</span>
+        }
+<span class="pc bpc" id="L366" title="1 of 2 branches missed.">        if (!activity.getEndTime().after(new java.util.Date()))</span>
+        {
+<span class="nc" id="L368">            throw new ServiceException(&quot;活动结束时间必须晚于当前时间&quot;);</span>
+        }
+<span class="fc" id="L370">    }</span>
+
+    private void validateSupportedType(String type)
+    {
+<span class="nc bnc" id="L374" title="All 2 branches missed.">        if (&quot;TALENT_SELECTION&quot;.equals(type))</span>
+        {
+<span class="nc" id="L376">            throw new ServiceException(&quot;人才评选为二期能力，当前版本暂未开放&quot;);</span>
+        }
+<span class="nc" id="L378">    }</span>
+
+    private void validateRuleConfig(RuleConfig ruleConfig)
+    {
+<span class="nc bnc" id="L382" title="All 2 branches missed.">        if (ruleConfig == null)</span>
+        {
+<span class="nc" id="L384">            throw new ServiceException(&quot;规则配置不能为空&quot;);</span>
+        }
+<span class="nc" id="L386">        BigDecimal passRatio = ruleConfig.getPassRatio();</span>
+<span class="nc" id="L387">        BigDecimal rejectRatio = ruleConfig.getRejectRatio();</span>
+<span class="nc bnc" id="L388" title="All 4 branches missed.">        if (passRatio == null || rejectRatio == null)</span>
+        {
+<span class="nc" id="L390">            throw new ServiceException(&quot;通过比例和淘汰比例不能为空&quot;);</span>
+        }
+<span class="nc bnc" id="L392" title="All 4 branches missed.">        if (passRatio.compareTo(BigDecimal.ZERO) &lt; 0 || rejectRatio.compareTo(BigDecimal.ZERO) &lt; 0)</span>
+        {
+<span class="nc" id="L394">            throw new ServiceException(&quot;通过比例和淘汰比例不能小于 0&quot;);</span>
+        }
+<span class="nc bnc" id="L396" title="All 4 branches missed.">        if (passRatio.compareTo(BigDecimal.valueOf(100)) &gt; 0 || rejectRatio.compareTo(BigDecimal.valueOf(100)) &gt; 0)</span>
+        {
+<span class="nc" id="L398">            throw new ServiceException(&quot;通过比例和淘汰比例不能大于 100&quot;);</span>
+        }
+<span class="nc bnc" id="L400" title="All 2 branches missed.">        if (passRatio.add(rejectRatio).compareTo(BigDecimal.valueOf(100)) &gt; 0)</span>
+        {
+<span class="nc" id="L402">            throw new ServiceException(&quot;通过比例和淘汰比例之和不能大于 100&quot;);</span>
+        }
+<span class="nc" id="L404">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

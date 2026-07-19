@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.evaluation.mapper.ActivityVoterMapper">
+    <resultMap type="ActivityVoter" id="ActivityVoterResult">
+        <id property="id" column="id" />
+        <result property="activityId" column="activity_id" />
+        <result property="voterId" column="voter_id" />
+        <result property="importSeq" column="import_seq" />
+        <result property="sourceType" column="source_type" />
+        <result property="sourceActivityId" column="source_activity_id" />
+        <result property="sourceActivityVoterId" column="source_activity_voter_id" />
+        <result property="name" column="name" />
+        <result property="employeeId" column="employee_id" />
+        <result property="department" column="department" />
+        <result property="status" column="status" />
+        <result property="voteToken" column="vote_token" />
+        <result property="submittedAt" column="submitted_at" />
+        <result property="remark" column="remark" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <resultMap type="Voter" id="VoterSnapshotResult">
+        <id property="id" column="id" />
+        <result property="activityId" column="activity_id" />
+        <result property="voterId" column="voter_id" />
+        <result property="importSeq" column="import_seq" />
+        <result property="sourceType" column="source_type" />
+        <result property="sourceActivityId" column="source_activity_id" />
+        <result property="sourceActivityVoterId" column="source_activity_voter_id" />
+        <result property="name" column="name" />
+        <result property="employeeId" column="employee_id" />
+        <result property="department" column="department" />
+        <result property="status" column="status" />
+        <result property="voteToken" column="vote_token" />
+        <result property="submittedAt" column="submitted_at" />
+        <result property="remark" column="remark" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="selectActivityVoterVo">select id, activity_id, voter_id, import_seq, source_type, source_activity_id, source_activity_voter_id, name, employee_id, department, status, vote_token, submitted_at, create_by, create_time, update_by, update_time, remark from ActivityVoter</sql>
+
+    <select id="selectActivityVoterList" parameterType="ActivityVoter" resultMap="ActivityVoterResult">
+        <include refid="selectActivityVoterVo"/>
+        <where>
+            <if test="activityId != null">and activity_id = #{activityId}</if>
+            <if test="voterId != null">and voter_id = #{voterId}</if>
+            <if test="name != null and name != ''">and name like concat('%', #{name}, '%')</if>
+            <if test="employeeId != null and employeeId != ''">and employee_id = #{employeeId}</if>
+            <if test="department != null and department != ''">and department = #{department}</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+        </where>
+        order by import_seq asc, id asc
+    </select>
+
+    <select id="selectVoterSnapshotList" parameterType="Voter" resultMap="VoterSnapshotResult">
+        <include refid="selectActivityVoterVo"/>
+        <where>
+            <if test="activityId != null">and activity_id = #{activityId}</if>
+            <if test="voterId != null">and voter_id = #{voterId}</if>
+            <if test="name != null and name != ''">and name like concat('%', #{name}, '%')</if>
+            <if test="employeeId != null and employeeId != ''">and employee_id = #{employeeId}</if>
+            <if test="department != null and department != ''">and department = #{department}</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+        </where>
+        order by import_seq asc, id asc
+    </select>
+
+    <select id="selectActivityVoterById" parameterType="Long" resultMap="ActivityVoterResult">
+        <include refid="selectActivityVoterVo"/> where id = #{id}
+    </select>
+
+    <select id="selectActivityVoterByToken" parameterType="String" resultMap="ActivityVoterResult">
+        <include refid="selectActivityVoterVo"/> where vote_token = #{voteToken}
+    </select>
+
+    <select id="selectActivityVoterByTokenForUpdate" parameterType="String" resultMap="ActivityVoterResult">
+        <include refid="selectActivityVoterVo"/> where vote_token = #{voteToken} for update
+    </select>
+
+    <select id="selectActivityVoterByIdentity" parameterType="ActivityVoter" resultMap="ActivityVoterResult">
+        <include refid="selectActivityVoterVo"/>
+        where activity_id = #{activityId}
+          and trim(name) = #{name}
+          and trim(employee_id) = #{employeeId}
+        limit 1
+    </select>
+
+    <select id="selectActivityVoterByUniqueKey" parameterType="ActivityVoter" resultMap="ActivityVoterResult">
+        <include refid="selectActivityVoterVo"/>
+        where activity_id = #{activityId}
+        <choose>
+            <when test="employeeId != null and employeeId != ''">and employee_id = #{employeeId}</when>
+            <otherwise>
+                and name = #{name}
+                <choose>
+                    <when test="department != null and department != ''">and department = #{department}</when>
+                    <otherwise>and (department is null or department = '')</otherwise>
+                </choose>
+            </otherwise>
+        </choose>
+        limit 1
+    </select>
+
+    <select id="countActivityVoterByActivityId" parameterType="Long" resultType="int">
+        select count(1) from ActivityVoter where activity_id = #{activityId}
+    </select>
+
+    <select id="countDoneByActivityId" parameterType="Long" resultType="int">
+        select count(1) from ActivityVoter where activity_id = #{activityId} and status = 'DONE'
+    </select>
+
+    <insert id="insertActivityVoter" parameterType="ActivityVoter" useGeneratedKeys="true" keyProperty="id">
+        insert into ActivityVoter(activity_id, voter_id, import_seq, source_type, source_activity_id, source_activity_voter_id, name, employee_id, department, status, vote_token, submitted_at, create_by, create_time, remark)
+        values(#{activityId}, #{voterId}, #{importSeq}, #{sourceType}, #{sourceActivityId}, #{sourceActivityVoterId}, #{name}, #{employeeId}, #{department}, #{status}, #{voteToken}, #{submittedAt}, #{createBy}, sysdate(), #{remark})
+    </insert>
+
+    <update id="updateActivityVoter" parameterType="ActivityVoter">
+        update ActivityVoter
+        <set>
+            <if test="activityId != null">activity_id = #{activityId},</if>
+            <if test="voterId != null">voter_id = #{voterId},</if>
+            <if test="importSeq != null">import_seq = #{importSeq},</if>
+            <if test="sourceType != null">source_type = #{sourceType},</if>
+            <if test="sourceActivityId != null">source_activity_id = #{sourceActivityId},</if>
+            <if test="sourceActivityVoterId != null">source_activity_voter_id = #{sourceActivityVoterId},</if>
+            <if test="name != null">name = #{name},</if>
+            <if test="importSeq != null">import_seq = #{importSeq},</if>
+            <if test="employeeId != null">employee_id = #{employeeId},</if>
+            <if test="department != null">department = #{department},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="voteToken != null">vote_token = #{voteToken},</if>
+            <if test="submittedAt != null">submitted_at = #{submittedAt},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+
+    <update id="markDone" parameterType="ActivityVoter">
+        update ActivityVoter
+        set status = 'DONE',
+            submitted_at = sysdate(),
+            update_by = #{updateBy},
+            update_time = sysdate()
+        where id = #{id} and status != 'DONE'
+    </update>
+
+    <update id="updateVoterSnapshot" parameterType="Voter">
+        update ActivityVoter
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="employeeId != null">employee_id = #{employeeId},</if>
+            <if test="department != null">department = #{department},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="voteToken != null">vote_token = #{voteToken},</if>
+            <if test="submittedAt != null">submitted_at = #{submittedAt},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            update_time = sysdate()
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteActivityVoterById" parameterType="Long">delete from ActivityVoter where id = #{id}</delete>
+    <delete id="deleteActivityVoterByIds" parameterType="Long">delete from ActivityVoter where id in <foreach collection="array" item="id" open="(" separator="," close=")">#{id}</foreach></delete>
+    <delete id="deleteActivityVoterByActivityId" parameterType="Long">delete from ActivityVoter where activity_id = #{activityId}</delete>
+</mapper>

@@ -1,0 +1,427 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SysRoleServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.system.service.impl</a> &gt; <span class="el_source">SysRoleServiceImpl.java</span></div><h1>SysRoleServiceImpl.java</h1><pre class="source lang-java linenums">package com.ruoyi.system.service.impl;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.common.annotation.DataScope;
+import com.ruoyi.common.constant.UserConstants;
+import com.ruoyi.common.core.domain.entity.SysRole;
+import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.spring.SpringUtils;
+import com.ruoyi.system.domain.SysRoleDept;
+import com.ruoyi.system.domain.SysRoleMenu;
+import com.ruoyi.system.domain.SysUserRole;
+import com.ruoyi.system.mapper.SysRoleDeptMapper;
+import com.ruoyi.system.mapper.SysRoleMapper;
+import com.ruoyi.system.mapper.SysRoleMenuMapper;
+import com.ruoyi.system.mapper.SysUserRoleMapper;
+import com.ruoyi.system.service.ISysRoleService;
+
+/**
+ * 角色 业务层处理
+ * 
+ * @author 职称评审系统项目组
+ */
+@Service
+<span class="nc" id="L33">public class SysRoleServiceImpl implements ISysRoleService</span>
+{
+    @Autowired
+    private SysRoleMapper roleMapper;
+
+    @Autowired
+    private SysRoleMenuMapper roleMenuMapper;
+
+    @Autowired
+    private SysUserRoleMapper userRoleMapper;
+
+    @Autowired
+    private SysRoleDeptMapper roleDeptMapper;
+
+    /**
+     * 根据条件分页查询角色数据
+     * 
+     * @param role 角色信息
+     * @return 角色数据集合信息
+     */
+    @Override
+    @DataScope(deptAlias = &quot;d&quot;)
+    public List&lt;SysRole&gt; selectRoleList(SysRole role)
+    {
+<span class="nc" id="L57">        return roleMapper.selectRoleList(role);</span>
+    }
+
+    /**
+     * 根据用户ID查询角色
+     * 
+     * @param userId 用户ID
+     * @return 角色列表
+     */
+    @Override
+    public List&lt;SysRole&gt; selectRolesByUserId(Long userId)
+    {
+<span class="nc" id="L69">        List&lt;SysRole&gt; userRoles = roleMapper.selectRolePermissionByUserId(userId);</span>
+<span class="nc" id="L70">        List&lt;SysRole&gt; roles = selectRoleAll();</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        for (SysRole role : roles)</span>
+        {
+<span class="nc bnc" id="L73" title="All 2 branches missed.">            for (SysRole userRole : userRoles)</span>
+            {
+<span class="nc bnc" id="L75" title="All 2 branches missed.">                if (role.getRoleId().longValue() == userRole.getRoleId().longValue())</span>
+                {
+<span class="nc" id="L77">                    role.setFlag(true);</span>
+<span class="nc" id="L78">                    break;</span>
+                }
+<span class="nc" id="L80">            }</span>
+<span class="nc" id="L81">        }</span>
+<span class="nc" id="L82">        return roles;</span>
+    }
+
+    /**
+     * 根据用户ID查询权限
+     * 
+     * @param userId 用户ID
+     * @return 权限列表
+     */
+    @Override
+    public Set&lt;String&gt; selectRolePermissionByUserId(Long userId)
+    {
+<span class="nc" id="L94">        List&lt;SysRole&gt; perms = roleMapper.selectRolePermissionByUserId(userId);</span>
+<span class="nc" id="L95">        Set&lt;String&gt; permsSet = new HashSet&lt;&gt;();</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        for (SysRole perm : perms)</span>
+        {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">            if (StringUtils.isNotNull(perm))</span>
+            {
+<span class="nc" id="L100">                permsSet.addAll(Arrays.asList(perm.getRoleKey().trim().split(&quot;,&quot;)));</span>
+            }
+<span class="nc" id="L102">        }</span>
+<span class="nc" id="L103">        return permsSet;</span>
+    }
+
+    /**
+     * 查询所有角色
+     * 
+     * @return 角色列表
+     */
+    @Override
+    public List&lt;SysRole&gt; selectRoleAll()
+    {
+<span class="nc" id="L114">        return SpringUtils.getAopProxy(this).selectRoleList(new SysRole());</span>
+    }
+
+    /**
+     * 根据用户ID获取角色选择框列表
+     * 
+     * @param userId 用户ID
+     * @return 选中角色ID列表
+     */
+    @Override
+    public List&lt;Long&gt; selectRoleListByUserId(Long userId)
+    {
+<span class="nc" id="L126">        return roleMapper.selectRoleListByUserId(userId);</span>
+    }
+
+    /**
+     * 通过角色ID查询角色
+     * 
+     * @param roleId 角色ID
+     * @return 角色对象信息
+     */
+    @Override
+    public SysRole selectRoleById(Long roleId)
+    {
+<span class="nc" id="L138">        return roleMapper.selectRoleById(roleId);</span>
+    }
+
+    /**
+     * 校验角色名称是否唯一
+     * 
+     * @param role 角色信息
+     * @return 结果
+     */
+    @Override
+    public boolean checkRoleNameUnique(SysRole role)
+    {
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        Long roleId = StringUtils.isNull(role.getRoleId()) ? -1L : role.getRoleId();</span>
+<span class="nc" id="L151">        SysRole info = roleMapper.checkRoleNameUnique(role.getRoleName());</span>
+<span class="nc bnc" id="L152" title="All 4 branches missed.">        if (StringUtils.isNotNull(info) &amp;&amp; info.getRoleId().longValue() != roleId.longValue())</span>
+        {
+<span class="nc" id="L154">            return UserConstants.NOT_UNIQUE;</span>
+        }
+<span class="nc" id="L156">        return UserConstants.UNIQUE;</span>
+    }
+
+    /**
+     * 校验角色权限是否唯一
+     * 
+     * @param role 角色信息
+     * @return 结果
+     */
+    @Override
+    public boolean checkRoleKeyUnique(SysRole role)
+    {
+<span class="nc bnc" id="L168" title="All 2 branches missed.">        Long roleId = StringUtils.isNull(role.getRoleId()) ? -1L : role.getRoleId();</span>
+<span class="nc" id="L169">        SysRole info = roleMapper.checkRoleKeyUnique(role.getRoleKey());</span>
+<span class="nc bnc" id="L170" title="All 4 branches missed.">        if (StringUtils.isNotNull(info) &amp;&amp; info.getRoleId().longValue() != roleId.longValue())</span>
+        {
+<span class="nc" id="L172">            return UserConstants.NOT_UNIQUE;</span>
+        }
+<span class="nc" id="L174">        return UserConstants.UNIQUE;</span>
+    }
+
+    /**
+     * 校验角色是否允许操作
+     * 
+     * @param role 角色信息
+     */
+    @Override
+    public void checkRoleAllowed(SysRole role)
+    {
+<span class="nc bnc" id="L185" title="All 4 branches missed.">        if (StringUtils.isNotNull(role.getRoleId()) &amp;&amp; role.isAdmin())</span>
+        {
+<span class="nc" id="L187">            throw new ServiceException(&quot;不允许操作超级管理员角色&quot;);</span>
+        }
+<span class="nc" id="L189">    }</span>
+
+    /**
+     * 校验角色是否有数据权限
+     * 
+     * @param roleIds 角色id
+     */
+    @Override
+    public void checkRoleDataScope(Long... roleIds)
+    {
+<span class="nc bnc" id="L199" title="All 2 branches missed.">        if (!SecurityUtils.isAdmin())</span>
+        {
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            for (Long roleId : roleIds)</span>
+            {
+<span class="nc" id="L203">                SysRole role = new SysRole();</span>
+<span class="nc" id="L204">                role.setRoleId(roleId);</span>
+<span class="nc" id="L205">                List&lt;SysRole&gt; roles = SpringUtils.getAopProxy(this).selectRoleList(role);</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">                if (StringUtils.isEmpty(roles))</span>
+                {
+<span class="nc" id="L208">                    throw new ServiceException(&quot;没有权限访问角色数据！&quot;);</span>
+                }
+            }
+        }
+<span class="nc" id="L212">    }</span>
+
+    /**
+     * 通过角色ID查询角色使用数量
+     * 
+     * @param roleId 角色ID
+     * @return 结果
+     */
+    @Override
+    public int countUserRoleByRoleId(Long roleId)
+    {
+<span class="nc" id="L223">        return userRoleMapper.countUserRoleByRoleId(roleId);</span>
+    }
+
+    /**
+     * 新增保存角色信息
+     * 
+     * @param role 角色信息
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int insertRole(SysRole role)
+    {
+        // 新增角色信息
+<span class="nc" id="L237">        roleMapper.insertRole(role);</span>
+<span class="nc" id="L238">        return insertRoleMenu(role);</span>
+    }
+
+    /**
+     * 修改保存角色信息
+     * 
+     * @param role 角色信息
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int updateRole(SysRole role)
+    {
+        // 修改角色信息
+<span class="nc" id="L252">        roleMapper.updateRole(role);</span>
+        // 删除角色与菜单关联
+<span class="nc" id="L254">        roleMenuMapper.deleteRoleMenuByRoleId(role.getRoleId());</span>
+<span class="nc" id="L255">        return insertRoleMenu(role);</span>
+    }
+
+    /**
+     * 修改角色状态
+     * 
+     * @param role 角色信息
+     * @return 结果
+     */
+    @Override
+    public int updateRoleStatus(SysRole role)
+    {
+<span class="nc" id="L267">        return roleMapper.updateRole(role);</span>
+    }
+
+    /**
+     * 修改数据权限信息
+     * 
+     * @param role 角色信息
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int authDataScope(SysRole role)
+    {
+        // 修改角色信息
+<span class="nc" id="L281">        roleMapper.updateRole(role);</span>
+        // 删除角色与部门关联
+<span class="nc" id="L283">        roleDeptMapper.deleteRoleDeptByRoleId(role.getRoleId());</span>
+        // 新增角色和部门信息（数据权限）
+<span class="nc" id="L285">        return insertRoleDept(role);</span>
+    }
+
+    /**
+     * 新增角色菜单信息
+     * 
+     * @param role 角色对象
+     */
+    public int insertRoleMenu(SysRole role)
+    {
+<span class="nc" id="L295">        int rows = 1;</span>
+        // 新增用户与角色管理
+<span class="nc" id="L297">        List&lt;SysRoleMenu&gt; list = new ArrayList&lt;SysRoleMenu&gt;();</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">        for (Long menuId : role.getMenuIds())</span>
+        {
+<span class="nc" id="L300">            SysRoleMenu rm = new SysRoleMenu();</span>
+<span class="nc" id="L301">            rm.setRoleId(role.getRoleId());</span>
+<span class="nc" id="L302">            rm.setMenuId(menuId);</span>
+<span class="nc" id="L303">            list.add(rm);</span>
+        }
+<span class="nc bnc" id="L305" title="All 2 branches missed.">        if (list.size() &gt; 0)</span>
+        {
+<span class="nc" id="L307">            rows = roleMenuMapper.batchRoleMenu(list);</span>
+        }
+<span class="nc" id="L309">        return rows;</span>
+    }
+
+    /**
+     * 新增角色部门信息(数据权限)
+     *
+     * @param role 角色对象
+     */
+    public int insertRoleDept(SysRole role)
+    {
+<span class="nc" id="L319">        int rows = 1;</span>
+        // 新增角色与部门（数据权限）管理
+<span class="nc" id="L321">        List&lt;SysRoleDept&gt; list = new ArrayList&lt;SysRoleDept&gt;();</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">        for (Long deptId : role.getDeptIds())</span>
+        {
+<span class="nc" id="L324">            SysRoleDept rd = new SysRoleDept();</span>
+<span class="nc" id="L325">            rd.setRoleId(role.getRoleId());</span>
+<span class="nc" id="L326">            rd.setDeptId(deptId);</span>
+<span class="nc" id="L327">            list.add(rd);</span>
+        }
+<span class="nc bnc" id="L329" title="All 2 branches missed.">        if (list.size() &gt; 0)</span>
+        {
+<span class="nc" id="L331">            rows = roleDeptMapper.batchRoleDept(list);</span>
+        }
+<span class="nc" id="L333">        return rows;</span>
+    }
+
+    /**
+     * 通过角色ID删除角色
+     * 
+     * @param roleId 角色ID
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int deleteRoleById(Long roleId)
+    {
+        // 删除角色与菜单关联
+<span class="nc" id="L347">        roleMenuMapper.deleteRoleMenuByRoleId(roleId);</span>
+        // 删除角色与部门关联
+<span class="nc" id="L349">        roleDeptMapper.deleteRoleDeptByRoleId(roleId);</span>
+<span class="nc" id="L350">        return roleMapper.deleteRoleById(roleId);</span>
+    }
+
+    /**
+     * 批量删除角色信息
+     * 
+     * @param roleIds 需要删除的角色ID
+     * @return 结果
+     */
+    @Override
+    @Transactional
+    public int deleteRoleByIds(Long[] roleIds)
+    {
+<span class="nc bnc" id="L363" title="All 2 branches missed.">        for (Long roleId : roleIds)</span>
+        {
+<span class="nc" id="L365">            checkRoleAllowed(new SysRole(roleId));</span>
+<span class="nc" id="L366">            checkRoleDataScope(roleId);</span>
+<span class="nc" id="L367">            SysRole role = selectRoleById(roleId);</span>
+<span class="nc bnc" id="L368" title="All 2 branches missed.">            if (countUserRoleByRoleId(roleId) &gt; 0)</span>
+            {
+<span class="nc" id="L370">                throw new ServiceException(String.format(&quot;%1$s已分配,不能删除&quot;, role.getRoleName()));</span>
+            }
+        }
+        // 删除角色与菜单关联
+<span class="nc" id="L374">        roleMenuMapper.deleteRoleMenu(roleIds);</span>
+        // 删除角色与部门关联
+<span class="nc" id="L376">        roleDeptMapper.deleteRoleDept(roleIds);</span>
+<span class="nc" id="L377">        return roleMapper.deleteRoleByIds(roleIds);</span>
+    }
+
+    /**
+     * 取消授权用户角色
+     * 
+     * @param userRole 用户和角色关联信息
+     * @return 结果
+     */
+    @Override
+    public int deleteAuthUser(SysUserRole userRole)
+    {
+<span class="nc" id="L389">        return userRoleMapper.deleteUserRoleInfo(userRole);</span>
+    }
+
+    /**
+     * 批量取消授权用户角色
+     * 
+     * @param roleId 角色ID
+     * @param userIds 需要取消授权的用户数据ID
+     * @return 结果
+     */
+    @Override
+    public int deleteAuthUsers(Long roleId, Long[] userIds)
+    {
+<span class="nc" id="L402">        return userRoleMapper.deleteUserRoleInfos(roleId, userIds);</span>
+    }
+
+    /**
+     * 批量选择授权用户角色
+     * 
+     * @param roleId 角色ID
+     * @param userIds 需要授权的用户数据ID
+     * @return 结果
+     */
+    @Override
+    public int insertAuthUsers(Long roleId, Long[] userIds)
+    {
+        // 新增用户与角色管理
+<span class="nc" id="L416">        List&lt;SysUserRole&gt; list = new ArrayList&lt;SysUserRole&gt;();</span>
+<span class="nc bnc" id="L417" title="All 2 branches missed.">        for (Long userId : userIds)</span>
+        {
+<span class="nc" id="L419">            SysUserRole ur = new SysUserRole();</span>
+<span class="nc" id="L420">            ur.setUserId(userId);</span>
+<span class="nc" id="L421">            ur.setRoleId(roleId);</span>
+<span class="nc" id="L422">            list.add(ur);</span>
+        }
+<span class="nc" id="L424">        return userRoleMapper.batchUserRole(list);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

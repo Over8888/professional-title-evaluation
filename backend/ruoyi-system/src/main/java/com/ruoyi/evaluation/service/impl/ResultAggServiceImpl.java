@@ -41,6 +41,7 @@ import com.ruoyi.evaluation.domain.Activity;
 import com.ruoyi.evaluation.domain.ActivityCandidate;
 import com.ruoyi.evaluation.domain.ActivityVoter;
 import com.ruoyi.evaluation.domain.ExportJob;
+import com.ruoyi.evaluation.domain.FinalEvaluation;
 import com.ruoyi.evaluation.domain.ResultAgg;
 import com.ruoyi.evaluation.domain.RuleConfig;
 import com.ruoyi.evaluation.domain.Vote;
@@ -48,10 +49,12 @@ import com.ruoyi.evaluation.mapper.ActivityCandidateMapper;
 import com.ruoyi.evaluation.mapper.ActivityMapper;
 import com.ruoyi.evaluation.mapper.ActivityVoterMapper;
 import com.ruoyi.evaluation.mapper.ExportJobMapper;
+import com.ruoyi.evaluation.mapper.FinalEvaluationMapper;
 import com.ruoyi.evaluation.mapper.ResultAggMapper;
 import com.ruoyi.evaluation.mapper.RuleConfigMapper;
 import com.ruoyi.evaluation.mapper.VoteMapper;
 import com.ruoyi.evaluation.service.IResultAggService;
+import com.ruoyi.evaluation.support.EvaluationTitleUtils;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -61,21 +64,10 @@ public class ResultAggServiceImpl implements IResultAggService
     private static final ZoneId ZONE_SHANGHAI = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String SCOPE_CANDIDATE_GROUP = "CANDIDATE_GROUP";
-    private static final String LEVEL_SUPERIOR = "正高级";
-    private static final String LEVEL_SUPERIOR_ENGINEER = "正高级工程师";
-    private static final String LEVEL_SUB_SUPERIOR = "副高级";
-    private static final String LEVEL_SENIOR_ENGINEER = "高级工程师";
-    private static final String LEVEL_INTERMEDIATE = "中级";
-    private static final String LEVEL_ENGINEER = "工程师";
-    private static final String LEVEL_JUNIOR = "初级";
-    private static final String LEVEL_ASSISTANT_ENGINEER = "助理工程师";
-    private static final String LEVEL_STAFF = "员级";
-    private static final String LEVEL_TECHNICIAN = "技术员";
     private static final String TYPE_VOTE_SUMMARY = "VOTE_SUMMARY";
     private static final String TYPE_STAT_RESULT = "STAT_RESULT";
     private static final String TYPE_PASS_DECISION = "PASS_DECISION";
     private static final String TYPE_FINAL_DECISION = "FINAL_DECISION";
-
     @Autowired
     private ActivityMapper activityMapper;
 
@@ -96,6 +88,9 @@ public class ResultAggServiceImpl implements IResultAggService
 
     @Autowired
     private ExportJobMapper exportJobMapper;
+
+    @Autowired
+    private FinalEvaluationMapper finalEvaluationMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -159,8 +154,10 @@ public class ResultAggServiceImpl implements IResultAggService
         }
 
         List<ActivityCandidate> candidates = loadCandidates(activityId);
+        int voteCandidateCount = activityCandidateMapper.countVoteCandidatesByActivityId(activityId);
         int totalVoters = activityVoterMapper.countActivityVoterByActivityId(activityId);
         int doneVoters = activityVoterMapper.countDoneByActivityId(activityId);
+        boolean allCompleted = voteCandidateCount == 0 || (totalVoters > 0 && totalVoters == doneVoters);
         int resultCount = resultAggMapper.countResultAggByActivityId(activityId);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("activityId", activity.getId());
@@ -168,16 +165,16 @@ public class ResultAggServiceImpl implements IResultAggService
         data.put("status", activity.getStatus());
         data.put("activityStatus", activity.getStatus());
         data.put("candidateCount", candidates.size());
-        data.put("voteCount", activityCandidateMapper.countVoteCandidatesByActivityId(activityId));
+        data.put("voteCount", voteCandidateCount);
         data.put("totalVoters", totalVoters);
         data.put("doneVoters", doneVoters);
         data.put("pendingVoters", Math.max(0, totalVoters - doneVoters));
-        data.put("allCompleted", totalVoters > 0 && totalVoters == doneVoters);
+        data.put("allCompleted", allCompleted);
         data.put("resultCount", resultCount);
         data.put("calculated", resultCount > 0);
         data.put("calculatedAt", resultAggMapper.selectLatestCalculatedAt(activityId));
-        data.put("canClose", ("PUBLISHED".equals(activity.getStatus()) || "VOTING".equals(activity.getStatus())) && totalVoters > 0 && totalVoters == doneVoters);
-        data.put("canCalculate", "CLOSED".equals(activity.getStatus()) && totalVoters > 0 && totalVoters == doneVoters);
+        data.put("canClose", ("PUBLISHED".equals(activity.getStatus()) || "VOTING".equals(activity.getStatus())) && allCompleted);
+        data.put("canCalculate", "CLOSED".equals(activity.getStatus()) && allCompleted);
         data.put("canExport", resultCount > 0);
         if (resultCount > 0)
         {
@@ -212,6 +209,42 @@ public class ResultAggServiceImpl implements IResultAggService
         }
         List<ResultAgg> rows = resultAggMapper.selectResultAggList(resultAgg);
         return buildGroupSummaryRows(rows);
+    }
+
+    @Override
+    public List<ResultAgg> selectCandidateResultList(ResultAgg resultAgg)
+    {
+        if (resultAgg == null || resultAgg.getActivityId() == null)
+        {
+            throw new ServiceException("Activity ID is required.");
+        }
+        resultAgg.setStatScope(SCOPE_CANDIDATE_GROUP);
+        return resultAggMapper.selectResultAggList(resultAgg);
+    }
+
+    @Override
+    public Map<String, Object> voteSummary(Long activityId)
+    {
+        if (activityId == null)
+        {
+            throw new ServiceException("Activity ID is required.");
+        }
+        Activity activity = activityMapper.selectActivityById(activityId);
+        if (activity == null)
+        {
+            throw new ServiceException("Activity does not exist.");
+        }
+        ResultAgg query = new ResultAgg();
+        query.setActivityId(activityId);
+        query.setStatScope(SCOPE_CANDIDATE_GROUP);
+        List<ResultAgg> rows = resultAggMapper.selectResultAggList(query);
+        List<Vote> details = voteMapper.selectVoteDetailByActivityId(activityId);
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("activityId", activityId);
+        data.put("summaryRows", voteSummaryRows(activityId, rows));
+        data.put("detailRows", voteDetailRows(details));
+        data.put("displayRows", voteDisplayRows(rows));
+        return data;
     }
 
     @Override
@@ -280,11 +313,16 @@ public class ResultAggServiceImpl implements IResultAggService
             query.setActivityId(activityId);
             query.setStatScope(SCOPE_CANDIDATE_GROUP);
             List<ResultAgg> rows = resultAggMapper.selectResultAggList(query);
+            if (TYPE_FINAL_DECISION.equals(type))
+            {
+                applyConfirmedFinalEvaluation(activityId, rows);
+            }
             String relativeFileName = writeExportFile(activity, rows, ruleConfigMapper.selectRuleConfigByActivityId(activityId), type);
             job.setStatus("SUCCESS");
             job.setFileName(relativeFileName);
             job.setFileUrl(downloadUrl(relativeFileName));
             exportJobMapper.insertExportJob(job);
+            markExported(activityId, type, username);
             return job;
         }
         catch (Exception e)
@@ -307,6 +345,10 @@ public class ResultAggServiceImpl implements IResultAggService
 
     private void requireAllVotersDone(Long activityId)
     {
+        if (activityCandidateMapper.countVoteCandidatesByActivityId(activityId) == 0)
+        {
+            return;
+        }
         int total = activityVoterMapper.countActivityVoterByActivityId(activityId);
         int done = activityVoterMapper.countDoneByActivityId(activityId);
         if (total <= 0)
@@ -396,7 +438,7 @@ public class ResultAggServiceImpl implements IResultAggService
             row.put("thirdLevelDepartment", String.join("、", summary.thirdLevelDepartments));
             row.put("passRate", rate(summary.passCount, summary.candidateCount));
             row.put("rejectRate", rate(summary.rejectCount, summary.candidateCount));
-            row.put("calculatedAt", summary.calculatedAt);
+            row.put("calculatedAt", formatDateTime(summary.calculatedAt));
             result.add(row);
         }
         result.sort(Comparator
@@ -497,32 +539,21 @@ public class ResultAggServiceImpl implements IResultAggService
 
     private int levelRank(String level)
     {
-        if (LEVEL_SUPERIOR.equals(level) || LEVEL_SUPERIOR_ENGINEER.equals(level))
-        {
-            return 1;
-        }
-        if (LEVEL_SUB_SUPERIOR.equals(level) || LEVEL_SENIOR_ENGINEER.equals(level))
-        {
-            return 2;
-        }
-        if (LEVEL_INTERMEDIATE.equals(level) || LEVEL_ENGINEER.equals(level))
-        {
-            return 3;
-        }
-        if (LEVEL_JUNIOR.equals(level) || LEVEL_ASSISTANT_ENGINEER.equals(level))
-        {
-            return 4;
-        }
-        if (LEVEL_STAFF.equals(level) || LEVEL_TECHNICIAN.equals(level))
-        {
-            return 5;
-        }
-        return 99;
+        return EvaluationTitleUtils.levelRank(level);
     }
 
     private void assignGroupResult(List<ResultRow> group, RuleConfig ruleConfig)
     {
-        int maxPass = ratioCount(group.size(), ruleConfig.getPassRatio());
+        if (!group.isEmpty() && isAutoPassLevel(group.get(0).candidate.getAppliedLevel()))
+        {
+            for (ResultRow row : group)
+            {
+                row.rankNo = row.candidate.getImportSeq();
+                row.finalResult = "PASS";
+            }
+            return;
+        }
+        int maxPass = maxPassCount(group, ruleConfig);
         int fixedPassCount = 0;
         for (ResultRow row : group)
         {
@@ -559,6 +590,19 @@ public class ResultAggServiceImpl implements IResultAggService
         }
     }
 
+    private int maxPassCount(List<ResultRow> group, RuleConfig ruleConfig)
+    {
+        if (group == null || group.isEmpty())
+        {
+            return 0;
+        }
+        if (isAutoPassLevel(group.get(0).candidate.getAppliedLevel()))
+        {
+            return group.size();
+        }
+        return ratioCount(group.size(), ruleConfig.getPassRatio());
+    }
+
     private ResultAgg toResultAgg(Long activityId, ResultRow row, String username, Date now)
     {
         int total = row.pass + row.reject;
@@ -582,6 +626,7 @@ public class ResultAggServiceImpl implements IResultAggService
 
     private String writeExportFile(Activity activity, List<ResultAgg> rows, RuleConfig ruleConfig, String type) throws Exception
     {
+        List<ResultAgg> exportRows = exportRows(rows);
         String relativeFileName = DateUtils.datePath() + "/" + exportFileName(activity.getId(), type);
         File target = new File(RuoYiConfig.getDownloadPath(), relativeFileName.replace("/", File.separator));
         File parent = target.getParentFile();
@@ -592,7 +637,7 @@ public class ResultAggServiceImpl implements IResultAggService
 
         if (TYPE_STAT_RESULT.equals(type))
         {
-            writeDepartmentZip(target, rows);
+            writeDepartmentZip(target, exportRows);
             return relativeFileName;
         }
 
@@ -601,77 +646,226 @@ public class ResultAggServiceImpl implements IResultAggService
             CellStyle headerStyle = headerStyle(workbook);
             if (TYPE_VOTE_SUMMARY.equals(type))
             {
-                writeFigure2(workbook, headerStyle, rows);
+                writeFigure2(workbook, headerStyle, activity.getId(), exportRows);
             }
             else if (TYPE_PASS_DECISION.equals(type))
             {
-                writeFigure4(workbook, headerStyle, rows);
+                writeFigure4(workbook, headerStyle, exportRows);
             }
             else if (TYPE_FINAL_DECISION.equals(type))
             {
-                writeFinalDecision(workbook, headerStyle, rows);
+                writeFinalDecision(workbook, headerStyle, exportRows);
             }
             else
             {
-                writeFigure3(workbook, headerStyle, rows, ruleConfig);
+                writeFigure3(workbook, headerStyle, exportRows, ruleConfig);
             }
             workbook.write(output);
         }
         return relativeFileName;
     }
 
-    private void writeFigure2(XSSFWorkbook workbook, CellStyle headerStyle, List<ResultAgg> rows)
+    private void writeFigure2(XSSFWorkbook workbook, CellStyle headerStyle, Long activityId, List<ResultAgg> rows)
     {
-        Sheet sheet = workbook.createSheet("Figure2_Vote_Summary");
-        writeHeader(sheet, headerStyle, 0, "No.", "Department", "Total Voters", "Done Voters", "Pending Voters");
-        Map<String, VoterGroupStats> voterGroups = loadVoterGroupStats(rows);
-        int voterRowNo = 1;
-        for (VoterGroupStats stats : voterGroups.values())
+        Sheet summarySheet = workbook.createSheet("投票情况");
+        writeHeader(summarySheet, headerStyle, 0, "主体名称", "人数", "未投票", "未提交", "已投票");
+        int summaryRowNo = 1;
+        for (Map<String, Object> summary : voteSummaryRows(activityId, rows))
         {
-            Row row = sheet.createRow(voterRowNo);
-            cell(row, 0, voterRowNo);
-            cell(row, 1, stats.department);
-            cell(row, 2, stats.total);
-            cell(row, 3, stats.done);
-            cell(row, 4, stats.total - stats.done);
-            voterRowNo++;
+            Row row = summarySheet.createRow(summaryRowNo++);
+            cell(row, 0, summary.get("subjectName"));
+            cell(row, 1, summary.get("total"));
+            cell(row, 2, summary.get("notVoted"));
+            cell(row, 3, summary.get("notSubmitted"));
+            cell(row, 4, summary.get("voted"));
         }
+        autosize(summarySheet, 5);
 
-        int detailStart = Math.max(voterRowNo + 2, 3);
-        writeHeader(sheet, headerStyle, detailStart, "No.", "Department", "Third Level Department", "Applied Level", "Import Seq", "Name",
-                "Company", "Position", "Pass Votes", "Reject Votes", "Total Votes",
-                "Pass Rate", "Reject Rate", "Vote Rank", "Final Result");
-        int rowNo = detailStart + 1;
-        int no = 1;
-        for (ResultAgg result : rows)
+        List<Vote> detailRows = voteMapper.selectVoteDetailByActivityId(activityId);
+        Map<String, List<Vote>> detailByDepartment = detailRows.stream()
+                .collect(Collectors.groupingBy(vote -> text(vote.getVoterDepartment()), LinkedHashMap::new, Collectors.toList()));
+        List<String> departments = sortedVoteDepartments(voteSummaryRows(activityId, rows), detailByDepartment);
+        int sheetNo = 1;
+        for (String department : departments)
         {
-            Row row = sheet.createRow(rowNo);
-            cell(row, 0, no);
-            cell(row, 1, result.getDepartment());
-            cell(row, 2, result.getThirdLevelDepartment());
-            cell(row, 3, result.getAppliedLevel());
-            cell(row, 4, result.getImportSeq());
-            cell(row, 5, result.getCandidateName());
-            cell(row, 6, result.getCompany());
-            cell(row, 7, result.getPosition());
-            cell(row, 8, result.getVotePassCount());
-            cell(row, 9, result.getVoteRejectCount());
-            cell(row, 10, result.getTotalVotes());
-            cell(row, 11, result.getPassRate());
-            cell(row, 12, result.getRejectRate());
-            cell(row, 13, result.getRankNo());
-            cell(row, 14, result.getFinalResult());
-            rowNo++;
-            no++;
+            Sheet detailSheet = workbook.createSheet(safeSheetName(sheetNo + "、" + StringUtils.defaultIfEmpty(department, "未分组")));
+            writeHeader(detailSheet, headerStyle, 0, "序列码", "推荐类别", "候选人", "编号", "单位", "部门", "岗位", "投票情况");
+            int rowNo = 1;
+            for (Vote detail : detailByDepartment.getOrDefault(department, new ArrayList<>()))
+            {
+                Row row = detailSheet.createRow(rowNo++);
+                cell(row, 0, voteSequenceCode(detail));
+                cell(row, 1, recommendationCategory(detail));
+                cell(row, 2, detail.getCandidateName());
+                cell(row, 3, detail.getImportSeq());
+                cell(row, 4, detail.getCompany());
+                cell(row, 5, candidateDepartmentLevel(detail));
+                cell(row, 6, detail.getPosition());
+                cell(row, 7, voteResultText(detail.getResult()));
+            }
+            autosize(detailSheet, 8);
+            sheetNo++;
         }
-        autosize(sheet, 15);
+    }
+
+    private List<Map<String, Object>> voteSummaryRows(Long activityId, List<ResultAgg> rows)
+    {
+        Map<String, VoterGroupStats> grouped = loadVoterGroupStats(activityId, rows);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (VoterGroupStats stats : grouped.values())
+        {
+            Map<String, Object> row = new LinkedHashMap<>();
+            int pending = Math.max(0, stats.total - stats.done);
+            row.put("subjectName", stats.department);
+            row.put("total", stats.total);
+            row.put("notVoted", pending);
+            row.put("notSubmitted", pending);
+            row.put("voted", stats.done);
+            result.add(row);
+        }
+        result.sort(Comparator
+                .comparing((Map<String, Object> row) -> departmentRank(text(row.get("subjectName"))))
+                .thenComparing(row -> text(row.get("subjectName"))));
+        return result;
+    }
+
+    private List<Map<String, Object>> voteDetailRows(List<Vote> details)
+    {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Vote detail : details)
+        {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("serialCode", voteSequenceCode(detail));
+            row.put("recommendCategory", recommendationCategory(detail));
+            row.put("candidateName", detail.getCandidateName());
+            row.put("importSeq", detail.getImportSeq());
+            row.put("company", detail.getCompany());
+            row.put("department", candidateDepartmentLevel(detail));
+            row.put("position", detail.getPosition());
+            row.put("voteResult", voteResultText(detail.getResult()));
+            row.put("voterDepartment", detail.getVoterDepartment());
+            row.put("voterName", detail.getVoterName());
+            result.add(row);
+        }
+        return result;
+    }
+
+    private List<Map<String, Object>> voteDisplayRows(List<ResultAgg> rows)
+    {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ResultAgg row : rows)
+        {
+            Map<String, Object> displayRow = new LinkedHashMap<>();
+            displayRow.put("activityCandidateId", row.getActivityCandidateId());
+            displayRow.put("candidateName", row.getCandidateName());
+            displayRow.put("importSeq", row.getImportSeq());
+            displayRow.put("department", row.getDepartment());
+            displayRow.put("appliedLevel", row.getAppliedLevel());
+            displayRow.put("position", row.getPosition());
+            displayRow.put("fixedType", row.getFixedType());
+            displayRow.put("passCount", row.getVotePassCount());
+            displayRow.put("rejectCount", row.getVoteRejectCount());
+            displayRow.put("rankNo", row.getRankNo());
+            displayRow.put("displayBucket", voteDisplayBucket(row));
+            displayRow.put("voteStatus", voteDisplayStatus(row));
+            result.add(displayRow);
+        }
+        result.sort(Comparator
+                .comparingInt((Map<String, Object> row) -> departmentRank(text(row.get("department"))))
+                .thenComparing(row -> text(row.get("department")))
+                .thenComparingInt(row -> levelRank(text(row.get("appliedLevel"))))
+                .thenComparing(row -> text(row.get("appliedLevel")))
+                .thenComparingInt(row -> intValue(row.get("displayBucket")))
+                .thenComparingInt(row -> intValue(row.get("rankNo")))
+                .thenComparingInt(row -> intValue(row.get("importSeq")))
+                .thenComparing(row -> text(row.get("candidateName"))));
+        return result;
+    }
+
+    private int voteDisplayBucket(ResultAgg row)
+    {
+        if ("PASS".equals(row.getFixedType()))
+        {
+            return 1;
+        }
+        if ("VOTE".equals(row.getFixedType()) && "PASS".equals(row.getFinalResult()))
+        {
+            return 2;
+        }
+        if ("VOTE".equals(row.getFixedType()) && "REJECT".equals(row.getFinalResult()))
+        {
+            return 3;
+        }
+        if ("REJECT".equals(row.getFixedType()))
+        {
+            return 4;
+        }
+        return 99;
+    }
+
+    private String voteDisplayStatus(ResultAgg row)
+    {
+        if ("PASS".equals(row.getFixedType()))
+        {
+            return "固定通过";
+        }
+        if ("REJECT".equals(row.getFixedType()))
+        {
+            return "固定淘汰";
+        }
+        return "推荐 " + intValue(row.getVotePassCount()) + " 票 / 淘汰 " + intValue(row.getVoteRejectCount()) + " 票";
+    }
+
+    private List<String> sortedVoteDepartments(List<Map<String, Object>> summaryRows, Map<String, List<Vote>> detailByDepartment)
+    {
+        LinkedHashSet<String> departments = new LinkedHashSet<>();
+        for (Map<String, Object> summary : summaryRows)
+        {
+            departments.add(text(summary.get("subjectName")));
+        }
+        departments.addAll(detailByDepartment.keySet());
+        List<String> result = new ArrayList<>(departments);
+        result.sort(Comparator
+                .comparingInt(this::departmentRank)
+                .thenComparing(department -> department));
+        return result;
+    }
+
+    private String voteSequenceCode(Vote detail)
+    {
+        return StringUtils.defaultIfEmpty(detail.getVoterEmployeeId(),
+                detail.getVoterImportSeq() == null ? StringUtils.defaultString(detail.getVoterName())
+                        : String.valueOf(detail.getVoterImportSeq()));
+    }
+
+    private String recommendationCategory(Vote detail)
+    {
+        return candidateDepartmentLevel(detail) + "(" + StringUtils.defaultString(detail.getVoterDepartment()) + ")";
+    }
+
+    private String candidateDepartmentLevel(Vote detail)
+    {
+        return StringUtils.defaultString(detail.getDepartment()) + "（" + StringUtils.defaultString(detail.getAppliedLevel()) + "）";
+    }
+
+    private String voteResultText(String result)
+    {
+        if ("PASS".equals(result))
+        {
+            return "推荐";
+        }
+        if ("REJECT".equals(result))
+        {
+            return "不推荐";
+        }
+        return StringUtils.defaultString(result);
     }
 
     private void writeFigure3(XSSFWorkbook workbook, CellStyle headerStyle, List<ResultAgg> rows, RuleConfig ruleConfig)
     {
-        Sheet sheet = workbook.createSheet("Figure3_Group_Summary");
-        writeHeader(sheet, headerStyle, 0, "No.", "Department", "Applied Level", "Candidate Count",
-                "Pass Cap", "Final PASS", "Final REJECT");
+        Sheet sheet = workbook.createSheet("图3_统计结果");
+        writeHeader(sheet, headerStyle, 0, "序号", "二级部门", "申报职称", "候选人数",
+                "最多通过人数", "最终通过人数", "最终不通过人数");
         Map<String, GroupStats> grouped = new LinkedHashMap<>();
         for (ResultAgg row : rows)
         {
@@ -697,15 +891,15 @@ public class ResultAggServiceImpl implements IResultAggService
             cell(row, 1, stats.department);
             cell(row, 2, stats.appliedLevel);
             cell(row, 3, stats.candidateCount);
-            cell(row, 4, ratioCount(stats.candidateCount, passRatio));
+            cell(row, 4, isAutoPassLevel(stats.appliedLevel) ? stats.candidateCount : ratioCount(stats.candidateCount, passRatio));
             cell(row, 5, stats.finalPass);
             cell(row, 6, stats.finalReject);
             rowNo++;
         }
 
         int objectStart = rowNo + 2;
-        writeHeader(sheet, headerStyle, objectStart, "No.", "Department", "Third Level Department", "Applied Level", "Import Seq", "Name",
-                "Pass Votes", "Reject Votes", "Pass Rate", "Reject Rate", "Vote Rank", "Final Result");
+        writeHeader(sheet, headerStyle, objectStart, "序号", "二级部门", "三级部门", "申报职称", "排序", "姓名",
+                "推荐票", "不推荐票", "推荐率", "不推荐率", "投票排名", "最终结果");
         int detailRowNo = objectStart + 1;
         int no = 1;
         for (ResultAgg result : rows)
@@ -731,9 +925,9 @@ public class ResultAggServiceImpl implements IResultAggService
 
     private void writeFigure4(XSSFWorkbook workbook, CellStyle headerStyle, List<ResultAgg> rows)
     {
-        Sheet sheet = workbook.createSheet("Figure4_Passed");
-        writeHeader(sheet, headerStyle, 0, "No.", "Department", "Third Level Department", "Applied Level", "Import Seq", "Name",
-                "Company", "Position", "Pass Votes", "Reject Votes", "Vote Rank");
+        Sheet sheet = workbook.createSheet("图4_通过表决");
+        writeHeader(sheet, headerStyle, 0, "序号", "二级部门", "三级部门", "申报职称", "排序", "姓名",
+                "单位", "岗位", "推荐票", "不推荐票", "投票排名");
         int rowNo = 1;
         for (ResultAgg result : rows)
         {
@@ -760,10 +954,10 @@ public class ResultAggServiceImpl implements IResultAggService
 
     private void writeFinalDecision(XSSFWorkbook workbook, CellStyle headerStyle, List<ResultAgg> rows)
     {
-        Sheet sheet = workbook.createSheet("Final_Decision");
-        writeHeader(sheet, headerStyle, 0, "No.", "Department", "Specialty", "Applied Level", "Import Seq", "Name",
-                "ID Card", "Company", "Position", "Range Type", "Pass Votes", "Reject Votes", "Total Votes",
-                "Pass Rate", "Reject Rate", "Vote Rank", "Final Result");
+        Sheet sheet = workbook.createSheet("最终总榜单");
+        writeHeader(sheet, headerStyle, 0, "序号", "二级部门", "评审专业", "申报职称", "排序", "姓名",
+                "身份证号", "单位", "岗位", "范围类型", "推荐票", "不推荐票", "总票数",
+                "推荐率", "不推荐率", "投票排名", "最终结果");
         int rowNo = 1;
         int no = 1;
         for (ResultAgg result : finalDecisionRows(rows))
@@ -775,7 +969,7 @@ public class ResultAggServiceImpl implements IResultAggService
             cell(row, 3, result.getAppliedLevel());
             cell(row, 4, result.getImportSeq());
             cell(row, 5, result.getCandidateName());
-            cell(row, 6, result.getIdCard());
+            cell(row, 6, maskIdCard(result.getIdCard()));
             cell(row, 7, result.getCompany());
             cell(row, 8, result.getPosition());
             cell(row, 9, result.getFixedType());
@@ -794,9 +988,14 @@ public class ResultAggServiceImpl implements IResultAggService
 
     private List<ResultAgg> finalDecisionRows(List<ResultAgg> rows)
     {
+        return exportRows(rows);
+    }
+
+    private List<ResultAgg> exportRows(List<ResultAgg> rows)
+    {
         return rows.stream()
                 .sorted(Comparator
-                        .comparingInt((ResultAgg row) -> finalDecisionBucket(row))
+                        .comparingInt((ResultAgg row) -> resultBucket(row))
                         .thenComparingInt(row -> departmentRank(text(row.getDepartment())))
                         .thenComparing(row -> text(row.getDepartment()))
                         .thenComparingInt(row -> levelRank(text(row.getAppliedLevel())))
@@ -808,27 +1007,12 @@ public class ResultAggServiceImpl implements IResultAggService
                 .collect(Collectors.toList());
     }
 
-    private int finalDecisionBucket(ResultAgg row)
+    private int resultBucket(ResultAgg row)
     {
-        String fixedType = row == null ? null : row.getFixedType();
         String finalResult = row == null ? null : row.getFinalResult();
-        if ("PASS".equals(fixedType))
-        {
-            return 1;
-        }
-        if ("VOTE".equals(fixedType) && "PASS".equals(finalResult))
-        {
-            return 2;
-        }
-        if ("VOTE".equals(fixedType) && "REJECT".equals(finalResult))
-        {
-            return 3;
-        }
-        if ("REJECT".equals(fixedType))
-        {
-            return 4;
-        }
-        return 5;
+        if ("PASS".equals(finalResult)) return 1;
+        if ("REJECT".equals(finalResult)) return 2;
+        return 3;
     }
 
     private void writeDepartmentZip(File target, List<ResultAgg> rows) throws Exception
@@ -975,7 +1159,7 @@ public class ResultAggServiceImpl implements IResultAggService
         {
             return TYPE_PASS_DECISION;
         }
-        if ("FINAL".equals(type) || "FINAL_DECISION".equals(type))
+        if ("FINAL".equals(type) || "FINAL_DECISION".equals(type) || "FIGURE5".equals(type) || "FINAL_EVALUATION".equals(type))
         {
             return TYPE_FINAL_DECISION;
         }
@@ -998,6 +1182,41 @@ public class ResultAggServiceImpl implements IResultAggService
         return "/common/download?fileName=" + URLEncoder.encode(relativeFileName, StandardCharsets.UTF_8) + "&delete=false";
     }
 
+    private void markExported(Long activityId, String type, String username)
+    {
+        if (!TYPE_FINAL_DECISION.equals(type))
+        {
+            return;
+        }
+        Activity activity = new Activity();
+        activity.setId(activityId);
+        activity.setStatus("EXPORTED");
+        activity.setUpdatedBy(username);
+        activityMapper.updateActivity(activity);
+    }
+
+    private void applyConfirmedFinalEvaluation(Long activityId, List<ResultAgg> rows)
+    {
+        FinalEvaluation query = new FinalEvaluation();
+        query.setActivityId(activityId);
+        List<FinalEvaluation> finalRows = finalEvaluationMapper.selectFinalEvaluationList(query);
+        if (finalRows.isEmpty() || finalRows.stream().anyMatch(row -> !"CONFIRMED".equals(row.getConfirmStatus())))
+        {
+            throw new ServiceException("Please confirm FinalEvaluation before exporting the final decision.");
+        }
+        Map<Long, String> finalResultByCandidateId = finalRows.stream()
+                .collect(Collectors.toMap(FinalEvaluation::getActivityCandidateId, FinalEvaluation::getFinalResult));
+        for (ResultAgg row : rows)
+        {
+            String finalResult = finalResultByCandidateId.get(row.getActivityCandidateId());
+            if (finalResult == null)
+            {
+                throw new ServiceException("FinalEvaluation is incomplete for the current activity.");
+            }
+            row.setFinalResult(finalResult);
+        }
+    }
+
     private Comparator<ResultRow> voteRankComparator()
     {
         return Comparator.comparingInt((ResultRow row) -> row.pass).reversed()
@@ -1009,6 +1228,11 @@ public class ResultAggServiceImpl implements IResultAggService
     private String groupKey(ResultRow row)
     {
         return text(row.candidate.getDepartment()) + "|" + text(row.candidate.getAppliedLevel());
+    }
+
+    private boolean isAutoPassLevel(String level)
+    {
+        return EvaluationTitleUtils.isAutoPassLevel(level);
     }
 
     private int ratioCount(int total, BigDecimal ratio)
@@ -1054,6 +1278,16 @@ public class ResultAggServiceImpl implements IResultAggService
         return date.toInstant().atZone(ZONE_SHANGHAI).format(DATE_TIME_FORMATTER);
     }
 
+    private String maskIdCard(String idCard)
+    {
+        String value = StringUtils.defaultString(idCard).trim();
+        if (value.length() <= 8)
+        {
+            return value;
+        }
+        return value.substring(0, 4) + "**********" + value.substring(value.length() - 4);
+    }
+
     private String safeFileName(String value)
     {
         String name = StringUtils.defaultIfEmpty(value, "未命名");
@@ -1067,7 +1301,7 @@ public class ResultAggServiceImpl implements IResultAggService
         return name.length() > 31 ? name.substring(0, 31) : name;
     }
 
-    private Map<String, VoterGroupStats> loadVoterGroupStats(List<ResultAgg> rows)
+    private Map<String, VoterGroupStats> loadVoterGroupStats(Long activityId, List<ResultAgg> rows)
     {
         Map<String, VoterGroupStats> stats = new LinkedHashMap<>();
         for (ResultAgg row : rows)
@@ -1075,12 +1309,8 @@ public class ResultAggServiceImpl implements IResultAggService
             String key = text(row.getDepartment());
             stats.computeIfAbsent(key, unused -> new VoterGroupStats(key));
         }
-        if (rows.isEmpty())
-        {
-            return stats;
-        }
         ActivityVoter query = new ActivityVoter();
-        query.setActivityId(rows.get(0).getActivityId());
+        query.setActivityId(activityId);
         List<ActivityVoter> voters = activityVoterMapper.selectActivityVoterList(query);
         for (ActivityVoter voter : voters)
         {

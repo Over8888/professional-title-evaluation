@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Activity.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">ruoyi-system</a> &gt; <a href="index.source.html" class="el_package">com.ruoyi.evaluation.domain</a> &gt; <span class="el_source">Activity.java</span></div><h1>Activity.java</h1><pre class="source lang-java linenums">package com.ruoyi.evaluation.domain;
+
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.core.domain.BaseEntity;
+
+<span class="fc" id="L8">public class Activity extends BaseEntity</span>
+{
+    private static final long serialVersionUID = 1L;
+
+    @Excel(name = &quot;Activity ID&quot;)
+    private Long id;
+
+    @Excel(name = &quot;Activity name&quot;)
+    private String name;
+
+    @Excel(name = &quot;Activity type&quot;)
+    private String type;
+
+    @Excel(name = &quot;Status&quot;)
+    private String status;
+
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date publishTime;
+
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date startTime;
+
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date endTime;
+
+    private String voteEntryKey;
+
+    private String qrCodeUrl;
+
+    private String archived;
+
+    private String createdBy;
+
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date createdAt;
+
+    private String updatedBy;
+
+    @JsonFormat(pattern = &quot;yyyy-MM-dd HH:mm:ss&quot;)
+    private Date updatedAt;
+
+<span class="fc" id="L49">    public Long getId() { return id; }</span>
+<span class="fc" id="L50">    public void setId(Long id) { this.id = id; }</span>
+<span class="fc" id="L51">    public String getName() { return name; }</span>
+<span class="fc" id="L52">    public void setName(String name) { this.name = name; }</span>
+<span class="nc" id="L53">    public String getType() { return type; }</span>
+<span class="nc" id="L54">    public void setType(String type) { this.type = type; }</span>
+<span class="fc" id="L55">    public String getStatus() { return status; }</span>
+<span class="fc" id="L56">    public void setStatus(String status) { this.status = status; }</span>
+<span class="fc" id="L57">    public Date getPublishTime() { return publishTime; }</span>
+<span class="fc" id="L58">    public void setPublishTime(Date publishTime) { this.publishTime = publishTime; }</span>
+<span class="fc" id="L59">    public Date getStartTime() { return startTime; }</span>
+<span class="fc" id="L60">    public void setStartTime(Date startTime) { this.startTime = startTime; }</span>
+<span class="fc" id="L61">    public Date getEndTime() { return endTime; }</span>
+<span class="fc" id="L62">    public void setEndTime(Date endTime) { this.endTime = endTime; }</span>
+<span class="fc" id="L63">    public String getVoteEntryKey() { return voteEntryKey; }</span>
+<span class="fc" id="L64">    public void setVoteEntryKey(String voteEntryKey) { this.voteEntryKey = voteEntryKey; }</span>
+<span class="nc" id="L65">    public String getQrCodeUrl() { return qrCodeUrl; }</span>
+<span class="nc" id="L66">    public void setQrCodeUrl(String qrCodeUrl) { this.qrCodeUrl = qrCodeUrl; }</span>
+<span class="nc" id="L67">    public String getArchived() { return archived; }</span>
+<span class="nc" id="L68">    public void setArchived(String archived) { this.archived = archived; }</span>
+<span class="nc" id="L69">    public String getCreatedBy() { return createdBy; }</span>
+<span class="nc" id="L70">    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }</span>
+<span class="nc" id="L71">    public Date getCreatedAt() { return createdAt; }</span>
+<span class="nc" id="L72">    public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }</span>
+<span class="nc" id="L73">    public String getUpdatedBy() { return updatedBy; }</span>
+<span class="fc" id="L74">    public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }</span>
+<span class="nc" id="L75">    public Date getUpdatedAt() { return updatedAt; }</span>
+<span class="nc" id="L76">    public void setUpdatedAt(Date updatedAt) { this.updatedAt = updatedAt; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
